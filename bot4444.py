@@ -553,5 +553,9 @@ async def w(ctx, bbb=None):
 
 
 if __name__ == '__main__':
-    bot.run(data["TOKEN"])
+    # 2. 从环境变量中读取名为 DISCORD_TOKEN 的值
+    token = os.getenv("DISCORD_TOKEN")
+    
+    # 3. 传入变量启动 Bot
+    bot.run(token)
 
