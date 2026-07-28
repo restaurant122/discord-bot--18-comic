@@ -35,7 +35,26 @@ bot.remove_command('help')
 #符號那邊可以是空的,如果是空的會達成跟onmessage一樣效果
 
 
+from threading import Thread
+from flask import Flask
 
+app = Flask('')
+
+@app.route('/')
+def home():
+    # 只要 UptimeRobot 或浏览器访问这个网址，就会收到这个响应
+    return "Bot is alive!"
+
+def run_web_server():
+    # Render 会自动提供 PORT 环境变量，默认使用 8080
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    # 开一个新的线程去跑 Flask，避免阻塞主程序
+    t = Thread(target=run_web_server)
+    t.daemon = True  # 设置为守护线程，Bot 停止时网页服务也会跟着停止
+    t.start()
 
 
 #bot這個物件底下個事件
@@ -553,9 +572,10 @@ async def w(ctx, bbb=None):
 
 
 if __name__ == '__main__':
-    # 2. 从环境变量中读取名为 DISCORD_TOKEN 的值
-    token = os.getenv("DISCORD_TOKEN")
+    # 先启动 HTTP Web 服务器
+    keep_alive()
     
-    # 3. 传入变量启动 Bot
+    # 再启动 Discord Bot
+    token = os.getenv("DISCORD_TOKEN")
     bot.run(token)
 
