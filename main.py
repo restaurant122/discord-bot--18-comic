@@ -5,8 +5,6 @@ import discord
 import random
 from discord.ext import commands
 import json
-with open("setting.json","r",encoding="utf8") as file:
-    data=json.load(file)
 import os    
 import asyncio
 
