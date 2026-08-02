@@ -14,35 +14,40 @@ from bs4 import BeautifulSoup
 import curl_cffi
 from curl_cffi.requests import AsyncSession
 
+
 from threading import Thread
 from flask import Flask
+import aiohttp
 
 
 async def handle_home(request):
-    return web.Response(text="Bot is alive!")
+    return web.Response(text="Bot is alive!", status=200)
 
-
-# 2. 啟動 Web 伺服器的非阻塞函數
-async def start_web_server():
+async def run_web_server():
     app = web.Application()
     app.router.add_get("/", handle_home)
-
     runner = web.AppRunner(app)
     await runner.setup()
-
-    # Render 會自動提供 PORT 環境變數，預設使用 8080
-    port = int(os.environ.get("PORT", 8080))
+    
+    port = int(os.environ.get("PORT", 10000))
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
-    print(f"Web server started on port {port}")
+    print(f"✅ Web server 監聽 Port: {port}")
 
-
-# 3. 在 Bot 的 setup_hook 中自動開啟 Web 伺服器 (Discord.py 2.0+ 最佳實踐)
-class MyBot(commands.Bot):
-
-    async def setup_hook(self):
-        # 當 Bot 初始化完成後，自動啟動 Web Server
-        self.loop.create_task(start_web_server())
+# ==========================================
+# 2. 內部自 Ping 保活機制 (雙保險)
+# ==========================================
+async def self_ping():
+    await asyncio.sleep(10) # 啟動後先等 10 秒
+    url = os.environ.get("RENDER_EXTERNAL_URL", "https://discord-bot-18-comic-1.onrender.com")
+    async with aiohttp.ClientSession() as session:
+        while True:
+            try:
+                async with session.get(url, timeout=10) as resp:
+                    print(f"🔄 [Self-Ping] 狀態碼: {resp.status}")
+            except Exception as e:
+                print(f"⚠️ [Self-Ping] 失敗: {e}")
+            await asyncio.sleep(240) # 每 4 分鐘自 Ping 一次
 
 
 intents=discord.Intents.default()
@@ -55,7 +60,7 @@ intents.reactions=True
 intents.presences = True
 
 #建置實體機器人
-bot=MyBot(command_prefix=".",intents=intents)
+bot=commands.bot(command_prefix=".",intents=intents)
 bot.remove_command('help')
 #符號那邊可以是空的,如果是空的會達成跟onmessage一樣效果
 
@@ -72,6 +77,7 @@ async def on_ready():
     print(bot.user.name)
     print(bot.user.id)
     print('---------')
+    bot.loop.create_task(self_ping())
 
 
 
@@ -392,12 +398,13 @@ async def h(ctx, bbb=None):
     await ctx.send(embed=ec)
 
 
-
+async def main():
+    await run_web_server()
+    token = os.getenv("DISCORD_TOKEN")
+    await bot.start(token)
 
 
 if __name__ == '__main__':
 
     
-    # 再启动 Discord Bot
-    token = os.getenv("DISCORD_TOKEN")
-    bot.run(token)
+    asyncio.run(main())
