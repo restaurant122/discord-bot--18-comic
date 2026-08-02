@@ -147,6 +147,7 @@ async def on_message(msg):
                     rr.raise_for_status()
                 except:
                     await msg.reply('telegram漫畫不能有除了連結以外的字符或空白鍵 或是 連結無效',mention_author=False)
+                    return
                 soup=BeautifulSoup(rr.text, features='lxml')
                 title=soup.select('title')[0].text.split('- Page 1 –')[0]
                 pages=len(soup.select('img'))
