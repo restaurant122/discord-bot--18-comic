@@ -14,7 +14,6 @@ from bs4 import BeautifulSoup
 import curl_cffi
 from curl_cffi.requests import AsyncSession
 
-
 from threading import Thread
 from flask import Flask
 
