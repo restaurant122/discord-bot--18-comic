@@ -88,9 +88,9 @@ async def on_message(msg):
         return
 
     
-    if "index-aid-" in msg.content and msg.author!=bot.user:
-        index=msg.content.find("index-aid-")
-        bbb = msg.content[index + 10 : index +20]
+    if "aid-" in msg.content and msg.author!=bot.user:
+        index=msg.content.find("aid-")
+        bbb = msg.content[index + 4 : index +14]
         album_id=""
         for i in bbb:
             if i.isdigit():
@@ -124,7 +124,7 @@ async def on_message(msg):
         ec = discord.Embed(
             title=title,
             description='點上面標題可直接到網站',
-            url=f'https://www.wnacg.org/photos-index-aid-{bbb}.html',
+            url=f'https://www.wnacg.com/photos-index-aid-{album_id}.html',
             colour=discord.Color.random()
         )
         ec.add_field(name='番號:', value=bbb, inline=True)
