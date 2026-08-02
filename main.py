@@ -12,7 +12,7 @@ import requests
 import re
 from bs4 import BeautifulSoup
 import curl_cffi
-
+from curl_cffi.requests import AsyncSession
 
 
 
@@ -166,106 +166,105 @@ async def on_message(msg):
                     pass
                 await msg.reply(embed=ec,mention_author=False)
 
-    if "album/" in msg.content and msg.author!=bot.user:
-        index=msg.content.find("album/")
-        bbb = msg.content[index + 6 : index +16]
-        album_id=""
-        for i in bbb:
-            if i.isdigit():
-                album_id+=i
-            else:
-                break    
-        url = f"https://18comic.vip/album/{album_id}/"
+    if "album/" in msg.content and msg.author != bot.user:
+            index = msg.content.find("album/")
+            bbb = msg.content[index + 6 : index + 16]
+            album_id = ""
+            for i in bbb:
+                if i.isdigit():
+                    album_id += i
+                else:
+                    break
     
-        i=1
-        # =====================
-        # 發送請求 (模擬真實 Chrome 120 的 TLS 指紋)
-        # =====================
-        # impersonate="chrome120" 可以完美模擬 Chrome 的底層網絡指紋，輕鬆過 Cloudflare
-        # 加上 verify=False 繞過憑證檢查
-        while(i!=0):
-            response = curl_cffi.requests.get(url, impersonate="chrome120", verify=False)
+            url = f"https://18comic.vip/album/{album_id}/"
     
-            if response.status_code != 200:
-                print(f"請求失敗，狀態碼：{response.status_code}")
-                i+=1
-                continue
-            if i==10:
-                await msg.channel.send("錯誤")
+            # =====================
+            # 发送异步请求 (避免阻塞 Discord Bot)
+            # =====================
+            response = None
+            max_retries = 5  # 限制最大重试次数，避免死循环
+    
+            # 使用 AsyncSession 发起非阻塞请求
+            async with AsyncSession(impersonate="chrome120", verify=False) as session:
+                for attempt in range(1, max_retries + 1):
+                    try:
+                        # 必须加上 timeout，防止 Render 挂起无响应
+                        response = await session.get(url, timeout=10)
+                        
+                        if response.status_code == 200:
+                            break
+                        else:
+                            print(f"第 {attempt} 次请求失败，状态码：{response.status_code}")
+                    except Exception as e:
+                        print(f"第 {attempt} 次请求发生异常: {e}")
+    
+                    # 每次重试前让出 CPU 权限（非阻塞等待 2 秒）
+                    await asyncio.sleep(2)
+    
+            # 如果重试多次后依然失败
+            if not response or response.status_code != 200:
+                await msg.reply("无法获取页面数据，请稍后重试（可能受到了 Cloudflare 限制）。", mention_author=False)
                 return
-            i=0
     
+            # =====================
+            # BeautifulSoup 解析
+            # =====================
+            soup = BeautifulSoup(response.text, "html.parser")
     
-        # =====================
-        # BeautifulSoup 解析
-        # =====================
-        soup = BeautifulSoup(response.text, "html.parser")
+            # 1. 标题
+            title = None
+            title_tag = soup.find("h1", id="book-name")
+            if title_tag:
+                title = title_tag.text.strip()
     
-        # 1. 標題
-        title = None
-        title_tag = soup.find("h1", id="book-name")
-        if title_tag:
-            title = title_tag.text.strip()
+            # 2. 封面
+            cover = f"https://cdn-msp3.18comic.vip/media/albums/{album_id}.jpg"
     
-        # 2. 封面
-        cover = f"https://cdn-msp3.18comic.vip/media/albums/{album_id}.jpg"
+            # 3. 页数
+            pages = None
+            page_element = soup.find(
+                lambda tag: tag.name in ["div", "span", "p", "h2"]
+                and "頁數" in tag.text
+                and tag.find(["div", "span", "p", "h2"]) is None
+            )
     
-        # 3. 頁數
-        pages = None
-        page_element = soup.find(
-            lambda tag: tag.name in ["div", "span", "p", "h2"]
-            and "頁數" in tag.text
-            and tag.find(["div", "span", "p", "h2"]) is None
-        )
+            if page_element:
+                match = re.search(r"\d+", page_element.text)
+                if match:
+                    pages = match.group()
     
-        if page_element:
-            match = re.search(r"\d+", page_element.text)
-            if match:
-                pages = match.group()
+            # 4. 日期
+            date = None
+            text = soup.get_text("\n", strip=True)
+            date_match = re.search(r"\d{4}-\d{2}-\d{2}", text)
+            if date_match:
+                date = date_match.group()
     
-        # 4. 日期
-        date = None
-        text = soup.get_text("\n", strip=True)
-        date_match = re.search(r"\d{4}-\d{2}-\d{2}", text)
-        if date_match:
-            date = date_match.group()
+            # 5. 标签 (Tags)
+            tags = []
+            tag_container = soup.find("span", {"itemprop": "genre", "data-type": "tags"})
+            if tag_container:
+                for a in tag_container.find_all("a"):
+                    tag_name = a.text.strip()
+                    if tag_name:
+                        tags.append(tag_name)
     
-        # 5. 標籤 (Tags)
-        tags = []
-        tag_container = soup.find("span", {"itemprop": "genre", "data-type": "tags"})
-        if tag_container:
-            for a in tag_container.find_all("a"):
-                tag_name = a.text.strip()
-                if tag_name:
-                    tags.append(tag_name)
-        comic = {
-            "ID": album_id,
-            "標題": title,
-            "頁數": pages,
-            "日期": date,
-            "標籤": tags,
-            "封面": cover,
-        }
+            # 建立 Embed
+            ec = discord.Embed(
+                title=f"{title or '未知标题'}",
+                description="点上面标题可直接到网站",
+                url=url,
+                colour=discord.Color.random(),
+            )
+            ec.add_field(name="番号:", value=album_id, inline=False)
+            ec.add_field(name="页数:", value=pages or "未知", inline=False)
     
+            str123 = ", ".join(tags[:10]) if tags else "无标签"
+            ec.add_field(name="标签:", value=str123, inline=False)
+            ec.add_field(name="上架日期:", value=date or "未知", inline=False)
+            ec.set_image(url=cover)
     
-        # 建立 Embed
-        ec = discord.Embed(
-            title=f'{title}',
-            description='點上面標題可直接到網站',
-            url=f"https://18comic.vip/album/{album_id}/",
-            colour=discord.Color.random()
-        )
-        ec.add_field(name='番號:', value=bbb, inline=False)
-        ec.add_field(name='頁數:', value=pages, inline=False)
-        str123=""
-        for i in tags[:10]:
-            str123+=f"{i} ,"
-        ec.add_field(name='標籤:', value=str123, inline=False)
-        ec.add_field(name='上架日期:', value=date, inline=False)
-        ec.set_image(url=cover)
-        
-    
-        await msg.reply(embed=ec,mention_author=False)
+            await msg.reply(embed=ec, mention_author=False)
 
 
     
