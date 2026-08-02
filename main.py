@@ -15,24 +15,6 @@ import curl_cffi
 from curl_cffi.requests import AsyncSession
 
 
-
-
-
-intents=discord.Intents.default()
-intents.message_content = True
-intents.guilds = True
-intents.members = True  # 如果有用到成員資料
-intents.messages = True
-intents.voice_states = True
-intents.reactions=True
-intents.presences = True
-
-#建置實體機器人
-bot=commands.Bot(command_prefix=".",intents=intents)
-bot.remove_command('help')
-#符號那邊可以是空的,如果是空的會達成跟onmessage一樣效果
-
-
 from threading import Thread
 from flask import Flask
 
@@ -62,6 +44,24 @@ class MyBot(commands.Bot):
     async def setup_hook(self):
         # 當 Bot 初始化完成後，自動啟動 Web Server
         self.loop.create_task(start_web_server())
+
+
+intents=discord.Intents.default()
+intents.message_content = True
+intents.guilds = True
+intents.members = True  # 如果有用到成員資料
+intents.messages = True
+intents.voice_states = True
+intents.reactions=True
+intents.presences = True
+
+#建置實體機器人
+bot=MyBot(command_prefix=".",intents=intents)
+bot.remove_command('help')
+#符號那邊可以是空的,如果是空的會達成跟onmessage一樣效果
+
+
+
 
 
 #bot這個物件底下個事件
