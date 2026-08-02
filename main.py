@@ -308,7 +308,8 @@ async def on_command_error(ctx,error):
     elif isinstance(error,commands.MaxConcurrencyReached):
         await ctx.send('此命令設有可同時使用次數限制')           
     else:
-        raise error    
+        await ctx.send(error)
+        raise error  
 
 
 
