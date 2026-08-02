@@ -7,7 +7,7 @@ from discord.ext import commands
 import json
 import os    
 import asyncio
-
+from aiohttp import web
 import requests
 import re
 from bs4 import BeautifulSoup
@@ -36,23 +36,32 @@ bot.remove_command('help')
 from threading import Thread
 from flask import Flask
 
-app = Flask('')
 
-@app.route('/')
-def home():
-    # 只要 UptimeRobot 或浏览器访问这个网址，就会收到这个响应
-    return "Bot is alive!"
+async def handle_home(request):
+    return web.Response(text="Bot is alive!")
 
-def run_web_server():
-    # Render 会自动提供 PORT 环境变量，默认使用 8080
+
+# 2. 啟動 Web 伺服器的非阻塞函數
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get("/", handle_home)
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+
+    # Render 會自動提供 PORT 環境變數，預設使用 8080
     port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    print(f"Web server started on port {port}")
 
-def keep_alive():
-    # 开一个新的线程去跑 Flask，避免阻塞主程序
-    t = Thread(target=run_web_server)
-    t.daemon = True  # 设置为守护线程，Bot 停止时网页服务也会跟着停止
-    t.start()
+
+# 3. 在 Bot 的 setup_hook 中自動開啟 Web 伺服器 (Discord.py 2.0+ 最佳實踐)
+class MyBot(commands.Bot):
+
+    async def setup_hook(self):
+        # 當 Bot 初始化完成後，自動啟動 Web Server
+        self.loop.create_task(start_web_server())
 
 
 #bot這個物件底下個事件
@@ -388,8 +397,7 @@ async def h(ctx, bbb=None):
 
 
 if __name__ == '__main__':
-    # 先启动 HTTP Web 服务器
-    keep_alive()
+
     
     # 再启动 Discord Bot
     token = os.getenv("DISCORD_TOKEN")
