@@ -81,14 +81,12 @@ async def on_message(msg):
         await msg.channel.send(time) 
         return
     #觸發其中一個詞就行
-    keyword=["apple","hi","abc","key"]
-    if msg.content in keyword and msg.author != bot.user:
-        await msg.channel.send("hi") 
-        return
+
       
     if msg.content=="ping" and msg.author!=bot.user:
         await msg.channel.send(f"{bot.latency*1000}ms")
         return
+
     
     if "index-aid-" in msg.content and msg.author!=bot.user:
         index=msg.content.find("index-aid-")
@@ -142,6 +140,30 @@ async def on_message(msg):
             pass
         await msg.reply(embed=ec,mention_author=False)    
 
+    if "https://telegra.ph" in msg.content and msg.author!=bot.user:
+                bbb=msg.content
+                try:
+                    rr=requests.get(bbb)
+                    rr.raise_for_status()
+                except:
+                    await msg.reply('telegram漫畫不能有除了連結以外的字符或空白鍵 或是 連結無效',mention_author=False)
+                soup=BeautifulSoup(rr.text, features='lxml')
+                title=soup.select('title')[0].text.split('- Page 1 –')[0]
+                pages=len(soup.select('img'))
+                image=soup.select('img')[0]['src']
+                ec = discord.Embed(
+                        title=f'{title}',
+                        description='點上面標題可直接到網站',
+                        url=bbb,
+                        colour=discord.Color.random()
+                    )
+                ec.add_field(name='頁數:', value=pages, inline=False)
+                ec.set_image(url=image)
+                try:
+                    await msg.edit(suppress=True)
+                except:
+                    pass
+                await msg.reply(embed=ec,mention_author=False)
 
     if "album/" in msg.content and msg.author!=bot.user:
         index=msg.content.find("album/")
@@ -278,18 +300,15 @@ async def on_command_error(ctx,error):
     if hasattr(ctx.command,"on_error"):
         return
     if isinstance(error,commands.errors.MissingRequiredArgument):
-        await ctx.send("你他媽沒有給我參數")
-    elif  isinstance(error,commands.errors.CommandNotFound):
-        await ctx.send("沒有這指令唷~") 
+        await ctx.send("沒有給參數")
     elif isinstance(error,commands.errors.MissingPermissions):
-        await ctx.send("沒有權限啦廢物")  
+        await ctx.send("沒有權限")  
     elif isinstance(error,commands.CommandOnCooldown):
-        await ctx.send(f'冷卻中啦,等個{error.retry_after:.2f}秒會死喔')
+        await ctx.send(f'冷卻中啦,{error.retry_after:.2f}秒')
     elif isinstance(error,commands.MaxConcurrencyReached):
         await ctx.send('此命令設有可同時使用次數限制')           
     else:
         raise error    
-
 
 
 
@@ -559,16 +578,6 @@ async def w(ctx, bbb=None):
 
 
 
-
-
-
-
-
-
-
-# bot.add_cog(Music(bot))
-
-
 if __name__ == '__main__':
     # 先启动 HTTP Web 服务器
     keep_alive()
@@ -576,4 +585,3 @@ if __name__ == '__main__':
     # 再启动 Discord Bot
     token = os.getenv("DISCORD_TOKEN")
     bot.run(token)
-
