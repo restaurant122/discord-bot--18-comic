@@ -60,7 +60,7 @@ intents.reactions=True
 intents.presences = True
 
 #建置實體機器人
-bot=commands.bot(command_prefix=".",intents=intents)
+bot=commands.Bot(command_prefix=".",intents=intents)
 bot.remove_command('help')
 #符號那邊可以是空的,如果是空的會達成跟onmessage一樣效果
 
