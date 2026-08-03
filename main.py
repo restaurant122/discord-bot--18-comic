@@ -399,6 +399,38 @@ async def h(ctx, bbb=None):
 
     await ctx.send(embed=ec)
 
+@bot.command()
+async def help(ctx, help=None):
+    tell=r'https://telegra.ph/xxxxxx(xxx通常為會一大串 直接貼上即可)'
+    try:
+        owneruser=f'\n作者:{(bot.get_user(613578839372857383))}'
+    except:
+        owneruser='作者:和泉'
+    ec = discord.Embed(title='📋歡迎來到說明書📋',
+                                description=f'🔺指令前綴:`.`',
+                                colour=discord.Color.random())
+    ec.add_field(
+        name='主要功能:修復h漫畫連結',
+        value=f'```用法是直接貼連結即可 不須前綴和指令 目前支援網站:紳士漫畫,telegram漫畫，範例:\nhttps://www.wnacg.com/photos-index-aid-374687.html \n{tell}```'
+        ,inline=False)
+    ec.add_field(
+        name='指令:``.h``',
+        value='```.h空一格加上番號 範例:.h 374687```'
+        ,inline=False
+    )
+    ec.add_field(
+            name='指令:``.tel``',
+            value=f'```.tel空一格加上整個網址\n範例:.tel {tell}```'
+            ,inline=False
+        )
+    ec.set_thumbnail(url=bot.user.avatar.url)
+    ec.set_image(url='https://media.discordapp.net/attachments/854736687002943488/891300310461587506/Tw.gif')
+    ec.set_footer(
+        text=
+        f'作者關心您{owneruser}'
+    )
+    await ctx.send(embed=ec)
+
 
 async def main():
     await run_web_server()
