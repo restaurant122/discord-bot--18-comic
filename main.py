@@ -89,7 +89,8 @@ async def on_ready():
          
 @bot.event
 async def on_message(msg):
-
+    if msg.author==bot.user:
+            return
     if msg.content=="時間":
         time=datetime.datetime.now().time()
         await msg.channel.send(time) 
@@ -97,12 +98,12 @@ async def on_message(msg):
     #觸發其中一個詞就行
 
       
-    if msg.content=="ping" and msg.author!=bot.user:
+    elif msg.content=="ping" :
         await msg.channel.send(f"{bot.latency*1000}ms")
         return
 
     
-    if "aid-" in msg.content and msg.author!=bot.user:
+    elif "aid-" in msg.content :
         index=msg.content.find("aid-")
         bbb = msg.content[index + 4 : index +14]
         album_id=""
@@ -154,7 +155,7 @@ async def on_message(msg):
             pass
         await msg.reply(embed=ec,mention_author=False)    
 
-    if "https://telegra.ph" in msg.content and msg.author!=bot.user:
+    elif "https://telegra.ph" in msg.content :
                 bbb=msg.content
                 try:
                     rr=requests.get(bbb)
@@ -184,7 +185,7 @@ async def on_message(msg):
 
 
     
-    if msg.author!=bot.user:
+    elif msg.author!=bot.user:
         if not msg.guild:
             embed=discord.Embed(title=f"有人傳送訊息給{bot.user.name},以下為信件內容",colour=discord.Color.random())
             embed.add_field(name="用戶",value=msg.author)
