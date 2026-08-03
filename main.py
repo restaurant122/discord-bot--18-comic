@@ -510,7 +510,7 @@ async def help(ctx, help=None):
     )
     ec.add_field(
             name='指令:``.tel``',
-            value=f'```.tel空一格加上整個網址\n範例:.tel {tell}```'
+            value=f'```.tel空一格加上整個網址\n範例:\n.tel {tell}```'
             ,inline=False
         )
     ec.set_thumbnail(url=bot.user.avatar.url)
