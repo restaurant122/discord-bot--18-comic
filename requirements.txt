@@ -5,3 +5,4 @@ Requests==2.34.2
 Flask>=3.0.0
 lxml
 aiohttp
+jmcomic==2.7.2
