@@ -255,7 +255,7 @@ async def on_message(msg):
                 url=f'https://18comic.vip/album/{album_id}/',
                 colour=discord.Color.random()
             )
-        ec.add_field(name='番號:', value=bbb, inline=True)
+        ec.add_field(name='番號:', value=album_id, inline=True)
         ec.add_field(name='作者:', value=album.author, inline=True)
         ec.add_field(name='是否為單本/單話 :', value=f" {'是 (單本/單話)' if is_single else f'否 (連載/共 {chapter_count} 章)'}", inline=False)
         if is_single:
