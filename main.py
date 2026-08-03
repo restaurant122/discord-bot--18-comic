@@ -401,7 +401,7 @@ async def h(ctx, bbb=None):
 
 @bot.command()
 async def help(ctx, help=None):
-    tell=r'https://telegra.ph/xxxxxx(xxx通常為會一大串 直接貼上即可)'
+    tell=r'https://telegra.ph/xxxxxx(xxx通常會為一大串 直接貼上即可)'
     try:
         owneruser=f'\n作者:{(bot.get_user(613578839372857383))}'
     except:
