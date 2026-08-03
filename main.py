@@ -18,6 +18,18 @@ from curl_cffi.requests import AsyncSession
 from threading import Thread
 from flask import Flask
 import aiohttp
+import traceback
+import jmcomic
+
+jmcomic.JmModuleConfig.FLAG_API_CLIENT_AUTO_UPDATE_DOMAIN = False
+
+option = jmcomic.create_option_by_str('''
+client:
+  postman:
+    type: requests
+''')
+
+client = option.build_jm_client()
 
 
 async def handle_home(request):
@@ -64,7 +76,7 @@ bot=commands.Bot(command_prefix=".",intents=intents)
 bot.remove_command('help')
 #符號那邊可以是空的,如果是空的會達成跟onmessage一樣效果
 
-
+owneruser='作者:和泉紗霧'
 
 
 
@@ -78,6 +90,8 @@ async def on_ready():
     print(bot.user.id)
     print('---------')
     bot.loop.create_task(self_ping())
+    global owneruser
+    owneruser=f'\n作者:{(bot.get_user(613578839372857383))}'
 
 
 
@@ -104,82 +118,159 @@ async def on_message(msg):
 
     
     elif "aid-" in msg.content :
-        index=msg.content.find("aid-")
-        bbb = msg.content[index + 4 : index +14]
-        album_id=""
+            index=msg.content.find("aid-")
+            bbb = msg.content[index + 4 : index +14]
+            album_id=""
+            for i in bbb:
+                if i.isdigit():
+                    album_id+=i
+                else:
+                    break    
+            m=await msg.reply('修復漫畫連結中...',mention_author=False)   
+            try:
+                res = requests.get(f'https://www.wn07.cfd/photos-index-aid-{album_id}.html', timeout=10)
+                res.raise_for_status()
+                soup = BeautifulSoup(res.text, features='lxml')
+            except Exception:
+                await msg.reply('搜尋不到該番號或網站無法連線。',mention_author=False)
+                return  
+    
+            # 安全地解析元素
+            imgs = soup.select('img')
+            if len(imgs) < 6:
+                await msg.reply('頁面解析失敗（圖片數量不足或番號不存在）。',mention_author=False)
+                return
+    
+            title = imgs[2].get('alt', '無標題')
+            image = imgs[2].get('src', '')
+    
+            # 解析頁數
+            labels = soup.select('label')
+            page_count = '未知'
+            if len(labels) > 1 and '：' in labels[1].text:
+                page_count = labels[1].text.split('：')[1].split('P')[0]
+    
+            # 建立 Embed
+            ec = discord.Embed(
+                title=title,
+                description='點上面標題可直接到網站',
+                url=f'https://www.wnacg.com/photos-index-aid-{album_id}.html',
+                colour=discord.Color.random()
+            )
+            ec.add_field(name='番號:', value=album_id, inline=True)
+            ec.add_field(name='頁數:', value=page_count, inline=True)
+            
+            if image:
+                # 避免重複拼接 https:
+                img_url = image if image.startswith('http') else f'https:{image[2:]}'
+                ec.set_image(url=img_url)
+            ec.set_footer(
+                            text=
+                            f'{owneruser}\n作者祝您使用愉快'
+                        )
+            try:
+                await msg.edit(suppress=True)
+            except:
+                pass
+            await msg.reply(embed=ec,mention_author=False)    
+            await m.delete()
+    
+    elif "https://telegra.ph" in msg.content :
+            bbb=msg.content
+            try:
+                rr=requests.get(bbb)
+                rr.raise_for_status()
+            except:
+                await msg.reply('telegram漫畫不能有除了連結以外的字符或空白鍵 或是 連結無效',mention_author=False)
+            m=await msg.reply('修復漫畫連結中...',mention_author=False)   
+            soup=BeautifulSoup(rr.text, features='lxml')
+            title=soup.select('title')[0].text.split('- Page 1 –')[0]
+            pages=len(soup.select('img'))
+            image=soup.select('img')[0]['src']
+            ec = discord.Embed(
+                    title=f'{title}',
+                    description='點上面標題可直接到網站',
+                    url=bbb,
+                    colour=discord.Color.random()
+                )
+            ec.add_field(name='頁數:', value=pages, inline=False)
+            ec.set_image(url=image)
+            ec.set_footer(
+                            text=
+                            f'{owneruser}\n作者祝您使用愉快'
+                        )
+            try:
+                await msg.edit(suppress=True)
+            except:
+                pass
+            await msg.reply(embed=ec,mention_author=False)
+            await m.delete()
+
+
+    elif "album/" in msg.content :
+        
+        index = msg.content.find("album/")
+        bbb = msg.content[index + 6 : index + 16]
+        album_id = ""
         for i in bbb:
             if i.isdigit():
-                album_id+=i
+                album_id += i
             else:
-                break    
+                break
+        m=await msg.reply('修復漫畫連結中...',mention_author=False)        
+                
         try:
-            res = requests.get(f'https://www.wn07.cfd/photos-index-aid-{album_id}.html', timeout=10)
-            res.raise_for_status()
-            soup = BeautifulSoup(res.text, features='lxml')
-        except Exception:
-            await msg.reply('搜尋不到該番號或網站無法連線。',mention_author=False)
-            return  
-
-        # 安全地解析元素
-        imgs = soup.select('img')
-        if len(imgs) < 6:
-            await msg.reply('頁面解析失敗（圖片數量不足或番號不存在）。',mention_author=False)
-            return
-
-        title = imgs[2].get('alt', '無標題')
-        image = imgs[2].get('src', '')
-
-        # 解析頁數
-        labels = soup.select('label')
-        page_count = '未知'
-        if len(labels) > 1 and '：' in labels[1].text:
-            page_count = labels[1].text.split('：')[1].split('P')[0]
-
-        # 建立 Embed
-        ec = discord.Embed(
-            title=title,
-            description='點上面標題可直接到網站',
-            url=f'https://www.wnacg.com/photos-index-aid-{album_id}.html',
-            colour=discord.Color.random()
-        )
-        ec.add_field(name='番號:', value=bbb, inline=True)
-        ec.add_field(name='頁數:', value=page_count, inline=True)
-        
-        if image:
-            # 避免重複拼接 https:
-            img_url = image if image.startswith('http') else f'https:{image[2:]}'
-            ec.set_image(url=img_url)
-        try:
-            await msg.edit(suppress=True)
+            album = client.get_album_detail(album_id)
         except:
-            pass
-        await msg.reply(embed=ec,mention_author=False)    
-
-    elif "https://telegra.ph" in msg.content :
-                bbb=msg.content
-                try:
-                    rr=requests.get(bbb)
-                    rr.raise_for_status()
-                except:
-                    await msg.reply('telegram漫畫不能有除了連結以外的字符或空白鍵 或是 連結無效',mention_author=False)
-                    return
-                soup=BeautifulSoup(rr.text, features='lxml')
-                title=soup.select('title')[0].text.split('- Page 1 –')[0]
-                pages=len(soup.select('img'))
-                image=soup.select('img')[0]['src']
-                ec = discord.Embed(
-                        title=f'{title}',
-                        description='點上面標題可直接到網站',
-                        url=bbb,
-                        colour=discord.Color.random()
-                    )
-                ec.add_field(name='頁數:', value=pages, inline=False)
-                ec.set_image(url=image)
-                try:
-                    await msg.edit(suppress=True)
-                except:
-                    pass
-                await msg.reply(embed=ec,mention_author=False)
+            await msg.reply('無此漫畫 請重新檢查',mention_author=False)
+            await m.delete()
+            return
+    
+        chapter_count = len(album)
+        is_single = (chapter_count <= 1)
+    
+        pages_info = None
+        desc_info = None
+    
+        if is_single:
+            # 單本/單話：抓取頁數資訊
+            if chapter_count > 0:
+                first_photo_summary = album[0]
+                photo_detail = client.get_photo_detail(first_photo_summary.photo_id)
+                pages_info = f"{len(photo_detail)} 頁"
+            else:
+                pages_info = "未知"
+        else:
+            # 連載作品：抓取作品簡介 (如果 description 為空則顯示預設字串)
+            desc_info = album.description.strip() if (album.description and album.description.strip()) else '無簡介資訊'
+    
+        # 5. 標籤處理 (最多顯示前 10 個)
+        tags = album.tags[:10] if album.tags else []
+        tags_str = ', '.join(tags) if tags else '無'
+    
+        cover_url = jmcomic.JmcomicText.get_album_cover_url(album_id)
+        ec = discord.Embed(
+                title=album.title,
+                description='點上面標題可直接到網站',
+                url=f'https://18comic.vip/album/{album_id}/',
+                colour=discord.Color.random()
+            )
+        ec.add_field(name='番號:', value=bbb, inline=True)
+        ec.add_field(name='作者:', value=album.author, inline=True)
+        ec.add_field(name='是否為單本/單話 :', value=f" {'是 (單本/單話)' if is_single else f'否 (連載/共 {chapter_count} 章)'}", inline=False)
+        if is_single:
+                ec.add_field(name='總頁數:', value=pages_info, inline=True)
+        else:
+                ec.add_field(name='作品簡介:', value=desc_info, inline=False)
+        ec.add_field(name='作品標籤:', value=tags_str, inline=False)
+        ec.set_image(url=cover_url)
+        ec.set_footer(
+                text=
+                f'{owneruser}\n作者祝您使用愉快'
+            )
+    
+        await msg.reply(embed=ec,mention_author=False)
+        await m.delete()
 
     
 
