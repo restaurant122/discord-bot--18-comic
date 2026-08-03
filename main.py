@@ -494,16 +494,14 @@ async def h(ctx, bbb=None):
 @bot.command()
 async def help(ctx, help=None):
     tell=r'https://telegra.ph/xxxxxx(xxx通常會為一大串 直接貼上即可)'
-    try:
-        owneruser=f'\n作者:{(bot.get_user(613578839372857383))}'
-    except:
-        owneruser='作者:和泉'
+    comicc=r'https://18comic.vip/album/1427038/xxxxx(xxx通常會為一大串 直接貼上即可)'
+
     ec = discord.Embed(title='📋歡迎來到說明書📋',
                                 description=f'🔺指令前綴:`.`',
                                 colour=discord.Color.random())
     ec.add_field(
         name='主要功能:修復h漫畫連結',
-        value=f'```用法是直接貼連結即可 不須前綴和指令 目前支援網站:紳士漫畫,telegram漫畫，範例:\nhttps://www.wnacg.com/photos-index-aid-374687.html \n{tell}```'
+        value=f'```用法是直接貼連結即可 不須前綴和指令 目前支援網站:紳士漫畫,telegram漫畫,禁漫天堂，範例:\nhttps://www.wnacg.com/photos-index-aid-374687.html \n{tell}\n{comicc}```'
         ,inline=False)
     ec.add_field(
         name='指令:``.h``',
