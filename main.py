@@ -124,14 +124,9 @@ async def on_message(msg):
         time=datetime.datetime.now().time()
         await msg.channel.send(time) 
         return
-    #觸發其中一個詞就行
-
-      
     elif msg.content=="ping" :
         await msg.channel.send(f"{bot.latency*1000}ms")
         return
-
-    
     elif "aid-" in msg.content :
         index=msg.content.find("aid-")
         bbb = msg.content[index + 4 : index +14]
@@ -475,7 +470,17 @@ async def on_message(msg):
         await msg.reply(embed=ec,mention_author=False)
         await m.delete()
 
+    elif "https://www.bilibili.com/" in msg.content :
     
+        pattern = r"(https?://www\.bilibili\.com/video/BV[a-zA-Z0-9]+)/?"
+        match1 = re.search(pattern, msg.content)
+        new_url = match1.group(1).replace("www.bilibili.com", "www.vxbilibili.com")
+        try:
+            await msg.edit(suppress=True)
+        except:
+            pass
+        oldurl=match1.group(1).replace("www.bilibili.com", "bilibili.com")
+        await msg.reply(f"[bili](<{oldurl}>) • [BiliFix]({new_url})",mention_author=False)
 
 
     
