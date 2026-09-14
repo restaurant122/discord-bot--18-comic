@@ -109,21 +109,10 @@ async def on_ready():
         await bot.get_channel(1533491542113779865).send(f"警告：找不到 {JSON_FILE_PATH}，將使用原始英文標籤。")
 
 
-
-        
-    
-
-
-#ctx=context上下文,包括所在頻道,發言者,id等
-         
 @bot.event
 async def on_message(msg):
     if msg.author==bot.user:
             return
-    if msg.content=="時間":
-        time=datetime.datetime.now().time()
-        await msg.channel.send(time) 
-        return
     elif msg.content=="ping" :
         await msg.channel.send(f"{bot.latency*1000}ms")
         return
@@ -306,9 +295,6 @@ async def on_message(msg):
             await msg.reply(embed=ec,mention_author=False)
             await m.delete()
             
-
-
-    
     elif "https://telegra.ph" in msg.content :
             bbb=msg.content
             try:
@@ -342,7 +328,6 @@ async def on_message(msg):
 
 
     elif "18comic.vip/album/" in msg.content :
-        
         index = msg.content.find("18comic.vip/album/")
         bbb = msg.content[index + 18 : index + 28]
         album_id = ""
@@ -405,8 +390,8 @@ async def on_message(msg):
     
         await msg.reply(embed=ec,mention_author=False)
         await m.delete()
+
     elif "18comic.vip/photo/" in msg.content :
-            
         index = msg.content.find("18comic.vip/photo/")
         bbb = msg.content[index + 18 : index + 28]
         album_id = ""
@@ -482,8 +467,18 @@ async def on_message(msg):
         oldurl=match1.group(1).replace("www.bilibili.com", "bilibili.com")
         await msg.reply(f"[bili](<{oldurl}>) • [BiliFix]({new_url})",mention_author=False)
 
+    elif "https://b23.tv" in msg.content :
+        pattern = r"(https?://)(b23\.tv/[a-zA-Z0-9]+)"
+        match = re.search(pattern, msg.content )
+        try:
+            await msg.edit(suppress=True)
+        except:
+            pass
+        if match:
+            new_url = f"{match.group(1)}vx{match.group(2)}"
+        old_url=match.group(1)+match.group(2)
+        await msg.reply(f"[bili](<{old_url}>) • [BiliFix]({new_url})",mention_author=False)
 
-    
     elif msg.author!=bot.user:
         if not msg.guild:
             embed=discord.Embed(title=f"有人傳送訊息給{bot.user.name},以下為信件內容",colour=discord.Color.random())
