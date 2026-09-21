@@ -460,12 +460,33 @@ async def on_message(msg):
         pattern = r"(https?://www\.bilibili\.com/video/BV[a-zA-Z0-9]+)/?"
         match1 = re.search(pattern, msg.content)
         new_url = match1.group(1).replace("www.bilibili.com", "www.vxbilibili.com")
-        try:
-            await msg.edit(suppress=True)
-        except:
-            pass
+        
         oldurl=match1.group(1).replace("www.bilibili.com", "bilibili.com")
-        await msg.reply(f"[bili](<{oldurl}>) • [BiliFix]({new_url})",mention_author=False)
+        for i in range(2):
+            sent_msg=await msg.reply(f"[bili](<{oldurl}>) • [BiliFix]({new_url})",mention_author=False)
+            await asyncio.sleep(7)
+            try:
+                updated_msg = await sent_msg.channel.fetch_message(sent_msg.id)
+                
+                # 4. 檢查 updated_msg.embeds 是否有資料
+                if updated_msg.embeds:
+                    deletemsg=await sent_msg.reply(f"✅ 成功生成預覽！",mention_author=False)
+                    try:
+                        await msg.edit(suppress=True)
+                    except:
+                        pass
+                    await asyncio.sleep(2.5)
+                    await deletemsg.delete()
+                    break
+                else:
+                    await sent_msg.reply("❌ Discord 未能成功生成該網址的預覽。",mention_author=False)
+                    await updated_msg.delete()
+            except discord.NotFound:
+                await msg.reply("訊息已被刪除，無法檢查是否修復成功。",mention_author=False)
+                break
+            except discord.HTTPException as e:
+                await msg.reply(f"擷取訊息失敗: {e}",mention_author=False)
+                break
 
     elif "https://b23.tv" in msg.content :
         pattern = r"(https?://)(b23\.tv/[a-zA-Z0-9]+)"
@@ -477,7 +498,29 @@ async def on_message(msg):
         if match:
             new_url = f"{match.group(1)}vx{match.group(2)}"
         old_url=match.group(1)+match.group(2)
-        await msg.reply(f"[bili](<{old_url}>) • [BiliFix]({new_url})",mention_author=False)
+        for i in range(2):
+            sent_msg=await msg.reply(f"[bili](<{old_url}>) • [BiliFix]({new_url})",mention_author=False)
+            await asyncio.sleep(7)
+            try:
+                updated_msg = await sent_msg.channel.fetch_message(sent_msg.id)
+                if updated_msg.embeds:
+                    deletemsg=await sent_msg.reply(f"✅ 成功生成預覽！",mention_author=False)
+                    try:
+                        await msg.edit(suppress=True)
+                    except:
+                        pass
+                    await asyncio.sleep(2.5)
+                    await deletemsg.delete()
+                    break
+                else:
+                    await sent_msg.reply("❌ Discord 未能成功生成該網址的預覽。",mention_author=False)
+                    await updated_msg.delete()
+            except discord.NotFound:
+                await msg.reply("訊息已被刪除，無法檢查是否修復成功。",mention_author=False)
+                break
+            except discord.HTTPException as e:
+                await msg.reply(f"擷取訊息失敗: {e}",mention_author=False)
+                break
 
     elif msg.author!=bot.user:
         if not msg.guild:
