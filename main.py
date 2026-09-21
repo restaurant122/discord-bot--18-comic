@@ -462,9 +462,9 @@ async def on_message(msg):
         new_url = match1.group(1).replace("www.bilibili.com", "www.vxbilibili.com")
         
         oldurl=match1.group(1).replace("www.bilibili.com", "bilibili.com")
-        for i in range(2):
+        for i in range(3):
             sent_msg=await msg.reply(f"[bili](<{oldurl}>) • [BiliFix]({new_url})",mention_author=False)
-            await asyncio.sleep(7)
+            await asyncio.sleep(10)
             try:
                 updated_msg = await sent_msg.channel.fetch_message(sent_msg.id)
                 
@@ -479,9 +479,10 @@ async def on_message(msg):
                     await deletemsg.delete()
                     break
                 else:
-                    await sent_msg.reply("❌ Discord 未能成功生成該網址的預覽。",mention_author=False)
+                    deletemsg=await msg.reply("❌ Discord 未能成功生成該網址的預覽。",mention_author=False)
                     await asyncio.sleep(4)
                     await sent_msg.delete()
+                    await deletemsg.delete()
             except discord.NotFound:
                 await msg.reply("訊息已被刪除，無法檢查是否修復成功。",mention_author=False)
                 break
@@ -497,9 +498,9 @@ async def on_message(msg):
         if match:
             new_url = f"{match.group(1)}vx{match.group(2)}"
         old_url=match.group(1)+match.group(2)
-        for i in range(2):
+        for i in range(3):
             sent_msg=await msg.reply(f"[bili](<{old_url}>) • [BiliFix]({new_url})",mention_author=False)
-            await asyncio.sleep(7)
+            await asyncio.sleep(10)
             try:
                 updated_msg = await sent_msg.channel.fetch_message(sent_msg.id)
                 if updated_msg.embeds:
@@ -512,12 +513,14 @@ async def on_message(msg):
                     await deletemsg.delete()
                     break
                 else:
-                    await sent_msg.reply("❌ Discord 未能成功生成該網址的預覽。",mention_author=False)
+                    deletemsg=await msg.reply("❌ Discord 未能成功生成該網址的預覽。",mention_author=False)
                     await asyncio.sleep(4)
                     await sent_msg.delete()
+                    await deletemsg.delete()
             except discord.NotFound:
                 await msg.reply("訊息已被刪除，無法檢查是否修復成功。",mention_author=False)
                 break
+            break
 
     elif msg.author!=bot.user:
         if not msg.guild:
