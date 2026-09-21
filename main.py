@@ -111,7 +111,7 @@ async def on_ready():
 
 @bot.event
 async def on_message(msg):
-    if msg.author==bot.user:
+    if msg.author.bot:
             return
     elif msg.content=="ping" :
         await msg.channel.send(f"{bot.latency*1000}ms")
