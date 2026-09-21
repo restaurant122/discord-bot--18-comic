@@ -480,13 +480,12 @@ async def on_message(msg):
                     break
                 else:
                     await sent_msg.reply("❌ Discord 未能成功生成該網址的預覽。",mention_author=False)
-                    await updated_msg.delete()
+                    await asyncio.sleep(4)
+                    await sent_msg.delete()
             except discord.NotFound:
                 await msg.reply("訊息已被刪除，無法檢查是否修復成功。",mention_author=False)
                 break
-            except discord.HTTPException as e:
-                await msg.reply(f"擷取訊息失敗: {e}",mention_author=False)
-                break
+
 
     elif "https://b23.tv" in msg.content :
         pattern = r"(https?://)(b23\.tv/[a-zA-Z0-9]+)"
@@ -514,12 +513,10 @@ async def on_message(msg):
                     break
                 else:
                     await sent_msg.reply("❌ Discord 未能成功生成該網址的預覽。",mention_author=False)
-                    await updated_msg.delete()
+                    await asyncio.sleep(4)
+                    await sent_msg.delete()
             except discord.NotFound:
                 await msg.reply("訊息已被刪除，無法檢查是否修復成功。",mention_author=False)
-                break
-            except discord.HTTPException as e:
-                await msg.reply(f"擷取訊息失敗: {e}",mention_author=False)
                 break
 
     elif msg.author!=bot.user:
