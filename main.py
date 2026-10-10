@@ -528,7 +528,7 @@ async def on_message(msg):
             embed.add_field(name="用戶",value=msg.author)
             embed.add_field(name="內容",value=msg.content)
             await bot.get_guild(850599773354328095).get_channel(850625850767573012).send(embed=embed)
-    if int(msg.author.id) == 1466755702851764379 and "<:emoji_135:1558103493368352848>" in msg.content:
+    if int(msg.author.id) == 1466755702851764379 and ":emoji_128:" in msg.content:
         await msg.delete()
     elif int(msg.author.id) == 1466755702851764379 and "marvel" in msg.content.lower():
         await msg.delete()
