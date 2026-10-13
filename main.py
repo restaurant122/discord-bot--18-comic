@@ -36,20 +36,7 @@ async def run_web_server():
     await site.start()
     print(f"✅ Web server 監聽 Port: {port}")
 
-# ==========================================
-# 2. 內部自 Ping 保活機制 (雙保險)
-# ==========================================
-async def self_ping():
-    await asyncio.sleep(10) # 啟動後先等 10 秒
-    url = os.environ.get("RENDER_EXTERNAL_URL", "https://discord-bot-18-comic-1.onrender.com")
-    async with aiohttp.ClientSession() as session:
-        while True:
-            try:
-                async with session.get(url, timeout=10) as resp:
-                    print(f"🔄 [Self-Ping] 狀態碼: {resp.status}")
-            except Exception as e:
-                print(f"⚠️ [Self-Ping] 失敗: {e}")
-            await asyncio.sleep(240) # 每 4 分鐘自 Ping 一次
+
 
 
 intents=discord.Intents.default()
