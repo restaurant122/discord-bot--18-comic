@@ -1,5 +1,3 @@
-from datetime import datetime
-import datetime
 import discord
 import random
 from discord.ext import commands
