@@ -80,6 +80,8 @@ else:
 
 @bot.event
 async def on_ready():
+    if hasattr(bot, "synced") and bot.synced:
+        return
     print("online")
     await bot.change_presence(status=discord.Status.online,activity=discord.Game("蘿莉"))
     print(bot.user.name)
