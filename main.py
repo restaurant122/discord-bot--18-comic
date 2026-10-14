@@ -520,8 +520,6 @@ async def on_message(msg):
         await msg.delete()
     elif int(msg.author.id) == 1466755702851764379 and any(kw in msg.content.lower() for kw in txtcontent):
         await msg.delete()
-    elif int(msg.author.id) == 1466755702851764379 and msg.channel.id==1171371714521866280:
-        await msg.delete()
 
 
     await bot.process_commands(msg)   
