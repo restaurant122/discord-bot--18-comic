@@ -527,20 +527,6 @@ async def on_message(msg):
 
  
 
-
-
-#取得此伺服器擁有者id
-@bot.command()
-async def si(ctx):
-    guild=bot.get_guild(850599773354328095)   
-    owner=guild.owner_id
-    await ctx.send(owner) 
-
-
-# 僅管理者使用
-# @commands.has_permissions(administrator=True)    
-            
-
 @bot.event
 async def on_command_error(ctx,error):
     if hasattr(ctx.command,"on_error"):
