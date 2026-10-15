@@ -36,7 +36,6 @@ async def run_web_server():
     await site.start()
     print(f"✅ Web server 監聽 Port: {port}")
 
-
 intents=discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
