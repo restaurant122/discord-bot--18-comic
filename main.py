@@ -511,10 +511,13 @@ async def on_message(msg):
             embed.add_field(name="用戶",value=msg.author)
             embed.add_field(name="內容",value=msg.content)
             await bot.get_guild(850599773354328095).get_channel(850625850767573012).send(embed=embed)
-    txtcontent=["marvel","vel","媽","mar"]
+    txtcontent=["marvel","vel","媽","mar","女馬"]
+    cleancontect=re.sub(r'\s+', '', msg.content)
     if int(msg.author.id) != 613578839372857383 and int(msg.author.id) != 589092386182004755 and ":emoji_128:" in msg.content:
         await msg.delete()
     elif int(msg.author.id) != 613578839372857383 and int(msg.author.id) != 589092386182004755 and any(kw in msg.content.lower() for kw in txtcontent):
+        await msg.delete()
+    elif int(msg.author.id) != 613578839372857383 and int(msg.author.id) != 589092386182004755 and any(kw in cleancontect.lower() for kw in txtcontent):
         await msg.delete()
 
 
