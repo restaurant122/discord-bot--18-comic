@@ -10,6 +10,7 @@ import re
 from bs4 import BeautifulSoup
 import aiohttp
 import jmcomic
+import traceback
 
 jmcomic.JmModuleConfig.FLAG_API_CLIENT_AUTO_UPDATE_DOMAIN = False
 
@@ -537,8 +538,16 @@ async def on_command_error(ctx,error):
     elif  isinstance(error,commands.errors.CommandNotFound):
             pass          
     else:
-        await ctx.send(error)
-        raise error  
+            tb_msg = "".join(
+                    traceback.format_exception(
+                        type(error), error, error.__traceback__
+                    )
+                )
+                # 防範訊息超過 Discord 2000 字元限制
+            if len(tb_msg) > 1900:
+                tb_msg = tb_msg[:1900] + "\n... (訊息過長已截斷)"
+            await bot.get_channel(1533491542113779865).send(f"```python\n{tb_msg}\n```")
+            raise error     
 
 
 
