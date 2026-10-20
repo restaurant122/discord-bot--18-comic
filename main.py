@@ -474,10 +474,6 @@ async def on_message(msg):
     elif "https://b23.tv" in msg.content :
         pattern = r"(https?://)(b23\.tv/[a-zA-Z0-9]+)"
         match = re.search(pattern, msg.content )
-        try:
-            await msg.edit(suppress=True)
-        except:
-            pass
         if match:
             new_url = f"{match.group(1)}vx{match.group(2)}"
         old_url=match.group(1)+match.group(2)
@@ -511,7 +507,7 @@ async def on_message(msg):
             embed.add_field(name="用戶",value=msg.author)
             embed.add_field(name="內容",value=msg.content)
             await bot.get_guild(850599773354328095).get_channel(850625850767573012).send(embed=embed)
-    txtcontent=["marvel","vel","媽","mar","女馬"]
+    txtcontent=["marvel","vel","媽","mar","女馬","漫威","曼威"]
     cleancontect=re.sub(r'\s+', '', msg.content)
     if int(msg.author.id) != 613578839372857383 and int(msg.author.id) != 589092386182004755 and ":emoji_128:" in msg.content:
         await msg.delete()
