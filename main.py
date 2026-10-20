@@ -473,7 +473,7 @@ async def on_message(msg):
                         await deletemsg.delete()
                         break
                     else:
-                        deletemsg=await msg.reply(f"❌ Discord 未能成功生成該網址的預覽。 第({i}/3)次嘗試修復)",mention_author=False)
+                        deletemsg=await msg.reply(f"❌ Discord 未能成功生成該網址的預覽。 第({i+1}/3)次嘗試修復)",mention_author=False)
                         await asyncio.sleep(4)
                         await sent_msg.delete()
                         await deletemsg.delete()
@@ -504,7 +504,7 @@ async def on_message(msg):
                         await deletemsg.delete()
                         break
                     else:
-                        deletemsg=await msg.reply(f"❌ Discord 未能成功生成該網址的預覽。 第({i}/3)次嘗試修復)",mention_author=False)
+                        deletemsg=await msg.reply(f"❌ Discord 未能成功生成該網址的預覽。 第({i+1}/3)次嘗試修復)",mention_author=False)
                         await asyncio.sleep(4)
                         await sent_msg.delete()
                         await deletemsg.delete()
