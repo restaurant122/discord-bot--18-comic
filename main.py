@@ -623,28 +623,33 @@ async def on_command_error(ctx,error):
             raise error     
 
 
-
-      
-
-
-
-
-
 @bot.command()
+@commands.is_owner()
 async def sev(ctx):
-    em=discord.Embed(title="伺服器狀態",color=discord.Color.random())
-    em.add_field(name="伺服器名稱",value=ctx.guild.name)
-    em.add_field(name="伺服器創建時間", value=ctx.guild.created_at.strftime("%Y年%m月%d日"),inline=False)
-    em.add_field(name="成員數",value=len(ctx.guild.members),inline=True)
-    em.add_field(name="頻道數量",value=len(ctx.guild.channels),inline=True)
-    em.add_field(name="身分組數量",value=len(ctx.guild.roles),inline=True)  
-    em.set_thumbnail(url=ctx.guild.icon_url)
-    em.set_footer(text="色情查詢系統")
+    em = discord.Embed(title="伺服器狀態", color=discord.Color.random())
+    em.add_field(name="伺服器名稱", value=ctx.guild.name)
+    em.add_field(name="伺服器創建時間", value=ctx.guild.created_at.strftime("%Y年%m月%d日"), inline=False)
+    em.add_field(name="成員數", value=ctx.guild.member_count, inline=True)  # 建議用 member_count 比較安全
+    em.add_field(name="頻道數量", value=len(ctx.guild.channels), inline=True)
+    em.add_field(name="身分組數量", value=len(ctx.guild.roles), inline=True)  
+    
+    # 修復圖示 URL 抓取方式
+    if ctx.guild.icon:
+        em.set_thumbnail(url=ctx.guild.icon.url)
+        
+    em.set_footer(text="查詢系統")
     await ctx.send(embed=em)
-    ccc=[]
+    
+    ccc = []
     for namea in ctx.guild.roles:
         ccc.append(namea.name)   
-    asa=discord.Embed(title="身分組",description=ccc,color=discord.Color.random())
+        
+    # 將串列轉成字串，避免型態錯誤
+    roles_str = ", ".join(ccc)
+    if len(roles_str) > 4000:  # 防止身分組太多超過 Discord 限制
+        roles_str = roles_str[:4000] + "... (過長已截斷)"
+        
+    asa = discord.Embed(title="身分組", description=roles_str, color=discord.Color.random())
     await ctx.send(embed=asa)
 
 
@@ -652,19 +657,93 @@ async def sev(ctx):
 @bot.command()
 @commands.is_owner()
 async def players(ctx, member: discord.Member = None):
-        member = member or ctx.author
-        embed = discord.Embed()
-        embed.set_author(name=member, icon_url=member.avatar_url)
-        embed.set_thumbnail(url=member.avatar_url)
-        embed.add_field(name=":computer:帳號創建時間", value=member.created_at.strftime("%Y年%m月%d日"), inline=True)            
-        embed.add_field(name=":calling:加入伺服器時間", value=member.joined_at.strftime("%Y年%m月%d日"), inline=True)            
-        since = member.premium_since
-        embed.add_field(name=":gem:加成伺服器時間",value=since.strftime("%Y年%m月%d日") if since else "無加成", inline=True)               
-        embed.add_field(name="是否為bot", value="是"if member.bot else "否", inline=True)
-        embed.add_field(name="目前狀態", value=member.status, inline=True) 
-        embed.add_field(name="最高權限身分組", value=member.top_role.mention)   
-        embed.set_footer(text='色情查詢系統')
-        await ctx.send(embed=embed)
+    member = member or ctx.author
+    embed = discord.Embed(color=discord.Color.random())
+    
+    # 修正大頭貼 URL 抓取方式（若使用者沒設大頭貼會改抓預設頭貼）
+    avatar_url = member.avatar.url if member.avatar else member.default_avatar.url
+    
+    embed.set_author(name=member, icon_url=avatar_url)
+    embed.set_thumbnail(url=avatar_url)
+    embed.add_field(name=":computer:帳號創建時間", value=member.created_at.strftime("%Y年%m月%d日"), inline=True)            
+    embed.add_field(name=":calling:加入伺服器時間", value=member.joined_at.strftime("%Y年%m月%d日") if member.joined_at else "未知", inline=True)            
+    since = member.premium_since
+    embed.add_field(name=":gem:加成伺服器時間", value=since.strftime("%Y年%m月%d日") if since else "無加成", inline=True)               
+    embed.add_field(name="是否為bot", value="是" if member.bot else "否", inline=True)
+    embed.add_field(name="目前狀態", value=str(member.status), inline=True) 
+    embed.add_field(name="最高權限身分組", value=member.top_role.mention)   
+    embed.set_footer(text='查詢系統')
+    await ctx.send(embed=embed)
+
+
+class GuildPaginationView(discord.ui.View):
+    def __init__(self, guilds, per_page=2):
+        super().__init__(timeout=180) # 3分鐘沒點擊按鈕就會失效
+        self.guilds = guilds
+        self.per_page = per_page
+        self.current_page = 0
+        self.max_pages = (len(guilds) - 1) // per_page + 1
+        self.update_buttons()
+
+    def update_buttons(self):
+        # 當前在第一頁時，禁用「上一頁」
+        self.prev_button.disabled = self.current_page == 0
+        # 當前在最後一頁時，禁用「下一頁」
+        self.next_button.disabled = self.current_page >= self.max_pages - 1
+
+    def create_embed(self):
+        embed = discord.Embed(
+            title=f"🤖 機器人所在的伺服器列表 (共 {len(self.guilds)} 個)",
+            color=discord.Color.blue()
+        )
+        
+        # 計算當前頁面要顯示的切片範圍
+        start = self.current_page * self.per_page
+        end = start + self.per_page
+        page_guilds = self.guilds[start:end]
+
+        for guild in page_guilds:
+            info = f"👥 成員數：`{guild.member_count}` 人\n👑 擁有者：`{guild.owner}`"
+            embed.add_field(name=f"🏠 {guild.name}", value=info, inline=False)
+            
+        embed.set_footer(text=f"第 {self.current_page + 1} 頁 / 共 {self.max_pages} 頁")
+        return embed
+
+    # 上一頁按鈕
+    @discord.ui.button(label="◀️ 上一頁", style=discord.ButtonStyle.primary, custom_id="prev_page")
+    async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.current_page > 0:
+            self.current_page -= 1
+            self.update_buttons()
+            await interaction.response.edit_message(embed=self.create_embed(), view=self)
+        else:
+            await interaction.response.defer()
+
+    # 下一頁按鈕
+    @discord.ui.button(label="下一頁 ▶️", style=discord.ButtonStyle.primary, custom_id="next_page")
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.current_page < self.max_pages - 1:
+            self.current_page += 1
+            self.update_buttons()
+            await interaction.response.edit_message(embed=self.create_embed(), view=self)
+        else:
+            await interaction.response.defer()
+
+
+# 2. 伺服器列表查詢指令
+@bot.command()
+@commands.is_owner()
+async def bot_guilds(ctx):
+    guilds = bot.guilds
+    if not guilds:
+        await ctx.send("目前機器人尚未加入任何伺服器。")
+        return
+
+    # 建立 View 實例（測試用 per_page=2，正式上線時可以改成 10）
+    view = GuildPaginationView(guilds, per_page=10)
+    
+    # 發送第一頁的訊息與按鈕
+    await ctx.send(embed=view.create_embed(), view=view)
 
 
 
