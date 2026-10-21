@@ -52,7 +52,7 @@ bot=commands.Bot(command_prefix=".",intents=intents)
 bot.remove_command('help')
 #符號那邊可以是空的,如果是空的會達成跟onmessage一樣效果
 
-owneruser='bot製作人:和泉紗霧'
+owneruser='bot製作人: 和泉紗霧'
 
 TAG_DICT = {}
 JSON_FILE_PATH = "db.raw.json"
@@ -87,7 +87,7 @@ async def on_ready():
     print(bot.user.id)
     print('---------')
     global owneruser
-    owneruser=f'\nbot製作人:{(bot.get_user(613578839372857383))}'
+    owneruser=f'\nbot製作人: {(bot.get_user(613578839372857383))}'
     global pathpath
     if pathpath==1:
         await bot.get_channel(1533491542113779865).send("標籤資料庫載入完成！")
