@@ -52,7 +52,7 @@ bot=commands.Bot(command_prefix=".",intents=intents)
 bot.remove_command('help')
 #符號那邊可以是空的,如果是空的會達成跟onmessage一樣效果
 
-owneruser='作者:和泉紗霧'
+owneruser='bot製作人:和泉紗霧'
 
 TAG_DICT = {}
 JSON_FILE_PATH = "db.raw.json"
@@ -77,20 +77,26 @@ if os.path.exists(JSON_FILE_PATH):
 else:
     print(f"警告：找不到 {JSON_FILE_PATH}，將使用原始英文標籤。")
 
+bot_avatar_url= 0
+
 @bot.event
 async def on_ready():
+    if hasattr(bot, "synced") and bot.synced:
+        return
     print("online")
     await bot.change_presence(status=discord.Status.online,activity=discord.Game("蘿莉"))
     print(bot.user.name)
     print(bot.user.id)
     print('---------')
     global owneruser
-    owneruser=f'\n作者:{(bot.get_user(613578839372857383))}'
+    owneruser=f'\nbot製作人:{(bot.get_user(613578839372857383))}'
     global pathpath
     if pathpath==1:
         await bot.get_channel(1533491542113779865).send("標籤資料庫載入完成！")
     else:
         await bot.get_channel(1533491542113779865).send(f"警告：找不到 {JSON_FILE_PATH}，將使用原始英文標籤。")
+    global bot_avatar_url
+    bot_avatar_url=bot.user.display_avatar.url if bot.user else ""
 
 
 @bot.event
@@ -128,44 +134,67 @@ async def on_message(msg):
 
             title = imgs[2].get('alt', '無標題')
             image = imgs[2].get('src', '')
-
+            category = '未知'
+            page_count = '未知'
             # 解析頁數
             labels = soup.select('label')
-            page_count = '未知'
-            if len(labels) > 1 and '：' in labels[1].text:
-                page_count = labels[1].text.split('：')[1].split('P')[0]
+            for label in labels:
+                text = label.text.strip()
+                if '分類' in text:
+                    parts = text.split('：')
+                    if len(parts) > 1:
+                        category = parts[1].strip()
+                elif '頁數' in text:
+                    parts = text.split('：')
+                    if len(parts) > 1:
+                        page_count = parts[1].split('P')[0].strip()
 
             # 建立 Embed
             ec = discord.Embed(
                 title=title,
-                description='點上面標題可直接到網站',
+                description='點上面標題可直接開啟該網站',
                 url=f'https://www.wnacg.com/photos-index-aid-{album_id}.html',
                 colour=discord.Color.random()
             )
             ec.add_field(name='番號:', value=album_id, inline=True)
+            ec.add_field(name='分類:', value=category, inline=True)
             ec.add_field(name='頁數:', value=page_count, inline=True)
+            tag = []
+            for a in soup.select('a'):
+                href = a.get('href', '')
+                # 通常標籤的連結會包含 tag 關鍵字
+                if 'tag' in href:
+                    tag_text = a.text.strip()
+                    if tag_text and tag_text not in tag:  # 過濾重複與空字串
+                        tag.append(tag_text)
+            tags=tag[1:20]if tag else '無'
+            tags_str = ', '.join(tags) if tags else '無'
+            author=tag[0]
+            ec.add_field(name='作者:', value=author, inline=True)
+            ec.add_field(name='標籤:', value=tags_str, inline=False)
             
             if image:
-            # 確保 // 開頭的網址能正確補上 https:
-                if image.startswith('//'):
-                    img_url = f'https:{image}'
-                elif image.startswith('http'):
+                if image.startswith('http'):
                     img_url = image
                 else:
-                    img_url = f'https://{image}'
-                
+                    clean_path = image.lstrip('/')
+                    img_url = f'https://{clean_path}'
                 ec.set_image(url=img_url)
-            ec.set_footer(
-                            text=
-                            f'{owneruser}\n作者祝您使用愉快'
-                        )
-            await m.delete()
-            await msg.reply(embed=ec,mention_author=False)    
+                ec.set_footer(
+                                text=
+                                f'{owneruser}\n祝您使用愉快'
+                            )
+                if bot_avatar_url:
+                    ec.set_thumbnail(url=bot_avatar_url)
+                await m.delete()
+                await msg.reply(embed=ec,mention_author=False)    
 
-            try:
-                await msg.edit(suppress=True)
-            except:
-                pass
+                try:
+                    await msg.edit(suppress=True)
+                except:
+                    pass
+            else:
+                await m.delete()
 
         elif "e-hentai.org/g/" in msg.content :
                 index=msg.content.find("e-hentai.org/g/")
@@ -257,6 +286,7 @@ async def on_message(msg):
             
                 ec = discord.Embed(
                     title=title,
+                    description='點上面標題可直接開啟該網站',
                     url=target_url,
                     colour=discord.Color.random(),
                 )
@@ -280,6 +310,12 @@ async def on_message(msg):
                     value=", ".join(male_tags) if male_tags else "無",
                     inline=False,
                 )
+                ec.set_footer(
+                                text=
+                                f'{owneruser}\n祝您使用愉快'
+                            )
+                if bot_avatar_url:
+                    ec.set_thumbnail(url=bot_avatar_url)
                 await msg.reply(embed=ec,mention_author=False)
                 await m.delete()
                 try:
@@ -301,7 +337,7 @@ async def on_message(msg):
                 image=soup.select('img')[0]['src']
                 ec = discord.Embed(
                         title=f'{title}',
-                        description='點上面標題可直接到網站',
+                        description='點上面標題可直接開啟該網站',
                         url=bbb,
                         colour=discord.Color.random()
                     )
@@ -309,9 +345,10 @@ async def on_message(msg):
                 ec.set_image(url=image)
                 ec.set_footer(
                                 text=
-                                f'{owneruser}\n作者祝您使用愉快'
+                                f'{owneruser}\n祝您使用愉快'
                             )
-
+                if bot_avatar_url:
+                    ec.set_thumbnail(url=bot_avatar_url)
                 await m.delete()
                 await msg.reply(embed=ec,mention_author=False)
                 try:
@@ -364,7 +401,7 @@ async def on_message(msg):
             cover_url = jmcomic.JmcomicText.get_album_cover_url(album_id)
             ec = discord.Embed(
                     title=album.title,
-                    description='點上面標題可直接到網站',
+                    description='點上面標題可直接開啟該網站',
                     url=f'https://18comic.vip/album/{album_id}/',
                     colour=discord.Color.random()
                 )
@@ -379,8 +416,10 @@ async def on_message(msg):
             ec.set_image(url=cover_url)
             ec.set_footer(
                     text=
-                    f'{owneruser}\n作者祝您使用愉快'
+                    f'{owneruser}\n祝您使用愉快'
                 )
+            if bot_avatar_url:
+                ec.set_thumbnail(url=bot_avatar_url)
             await m.delete()
             await msg.reply(embed=ec,mention_author=False)
             
@@ -428,7 +467,7 @@ async def on_message(msg):
             cover_url = jmcomic.JmcomicText.get_album_cover_url(album_id)
             ec = discord.Embed(
                     title=album.title,
-                    description='點上面標題可直接到網站',
+                    description='點上面標題可直接開啟該網站',
                     url=f'https://18comic.vip/album/{album_id}/',
                     colour=discord.Color.random()
                 )
@@ -443,8 +482,10 @@ async def on_message(msg):
             ec.set_image(url=cover_url)
             ec.set_footer(
                     text=
-                    f'{owneruser}\n作者祝您使用愉快'
+                    f'{owneruser}\n祝您使用愉快'
                 )
+            if bot_avatar_url:
+                ec.set_thumbnail(url=bot_avatar_url)
             await m.delete()
             await msg.reply(embed=ec,mention_author=False)
             
@@ -473,7 +514,7 @@ async def on_message(msg):
                         await deletemsg.delete()
                         break
                     else:
-                        deletemsg=await msg.reply(f"❌ Discord 未能成功生成該網址的預覽。 第({i+1}/3)次嘗試修復)",mention_author=False)
+                        deletemsg=await msg.reply(f"❌ Discord 未能成功生成該網址的預覽。 第({i}/3)次嘗試修復)",mention_author=False)
                         await asyncio.sleep(4)
                         await sent_msg.delete()
                         await deletemsg.delete()
@@ -504,7 +545,7 @@ async def on_message(msg):
                         await deletemsg.delete()
                         break
                     else:
-                        deletemsg=await msg.reply(f"❌ Discord 未能成功生成該網址的預覽。 第({i+1}/3)次嘗試修復)",mention_author=False)
+                        deletemsg=await msg.reply(f"❌ Discord 未能成功生成該網址的預覽。 第({i}/3)次嘗試修復)",mention_author=False)
                         await asyncio.sleep(4)
                         await sent_msg.delete()
                         await deletemsg.delete()
