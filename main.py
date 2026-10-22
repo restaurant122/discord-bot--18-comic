@@ -8,7 +8,6 @@ from aiohttp import web
 import requests
 import re
 from bs4 import BeautifulSoup
-import aiohttp
 import jmcomic
 import traceback
 
@@ -90,11 +89,23 @@ async def on_ready():
     owneruser=f'\nbot製作人: {(bot.get_user(613578839372857383))}'
     global pathpath
     if pathpath==1:
-        await bot.get_channel(1533491542113779865).send("標籤資料庫載入完成！")
+        pathpath="標籤資料庫載入完成！"
     else:
-        await bot.get_channel(1533491542113779865).send(f"警告：找不到 {JSON_FILE_PATH}，將使用原始英文標籤。")
+        pathpath=f"警告：找不到 {JSON_FILE_PATH}，將使用原始英文標籤。"
     global bot_avatar_url
     bot_avatar_url=bot.user.display_avatar.url if bot.user else ""
+    try:
+        synced = await bot.tree.sync()
+        slash=f"已成功同步 {len(synced)} 個 Slash 指令!"
+    except Exception as e:
+        slash=f"同步指令失敗: {e}"
+    try:
+        await bot.load_extension('blackjack')
+        cogg=("已成功載入 blackjack 模組！")
+    except Exception as e:
+        cogg=(f"載入 21點 模組失敗: {e}")
+    content='```'+'\n'+pathpath+'\n'+slash+'\n'+cogg+'```'
+    await bot.get_channel(1533491542113779865).send(content)
 
 
 @bot.event
@@ -116,10 +127,12 @@ async def on_message(msg):
                 else:
                     break    
             m=await msg.reply('修復漫畫連結中...',mention_author=False)   
-            try:
+            def fetch_and_parse():
                 res = requests.get(f'https://www.wn07.cfd/photos-index-aid-{album_id}.html', timeout=10)
                 res.raise_for_status()
-                soup = BeautifulSoup(res.text, features='lxml')
+                return BeautifulSoup(res.text, features='lxml')
+            try:
+                soup = await asyncio.to_thread(fetch_and_parse)
             except Exception:
                 await msg.reply('搜尋不到該番號或網站無法連線。',mention_author=False)
                 return  
@@ -210,11 +223,14 @@ async def on_message(msg):
                 match = re.search(r"https?://[^/]+/g/\d+/[^/]+/", msg.content)
                 target_url = match.group(0)
                 
-                res = requests.get(target_url, headers=headers, timeout=10)
+                res = await asyncio.to_thread(
+                    requests.get, target_url, headers=headers, timeout=10
+                )
+
                 if res.status_code != 200:
-                    await msg.reply(f"無法存取頁面，狀態碼: {res.status_code}",mention_author=False)
+                    await msg.reply(f"無法存取頁面，狀態碼: {res.status_code}", mention_author=False)
                     return
-            
+
                 res.encoding = "utf-8"
                 soup = BeautifulSoup(res.text, "html.parser")
             
@@ -324,12 +340,18 @@ async def on_message(msg):
         elif "https://telegra.ph" in msg.content :
                 bbb=msg.content
                 try:
-                    rr=requests.get(bbb)
+                    # 將會阻塞的 requests.get 丟到背景執行緒
+                    rr = await asyncio.to_thread(requests.get, bbb)
                     rr.raise_for_status()
-                except:
-                    await msg.reply('telegram漫畫不能有除了連結以外的字符或空白鍵 或是 連結無效',mention_author=False)
-                m=await msg.reply('修復漫畫連結中...',mention_author=False)   
-                soup=BeautifulSoup(rr.text, features='lxml')
+                except Exception:
+                    await msg.reply(
+                        'telegram漫畫不能有除了連結以外的字符或空白鍵 或是 連結無效',
+                        mention_author=False,
+                    )
+                    return  # 🔴 這裡一定要有 return，否則發生錯誤後程式會繼續往下跑而崩潰！
+
+                m = await msg.reply('修復漫畫連結中...', mention_author=False)
+                soup = BeautifulSoup(rr.text, features='lxml')
                 title=soup.select('title')[0].text.split('- Page 1 –')[0]
                 pages=len(soup.select('img'))
                 image=soup.select('img')[0]['src']
@@ -557,6 +579,7 @@ async def on_message(msg):
                 embed.add_field(name="用戶",value=msg.author)
                 embed.add_field(name="內容",value=msg.content)
                 await bot.get_guild(850599773354328095).get_channel(850625850767573012).send(embed=embed)
+
     except Exception as e:
         # 當裡面任何一個地方報錯，程式會直接跳到這裡！
         
