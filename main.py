@@ -894,6 +894,69 @@ async def h(ctx, bbb=None):
 
     await ctx.send(embed=ec)
 
+
+class BlackjackView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None) # 如果希望按鈕永久有效（機器人重啟也能用），設定 timeout=None
+
+    # 參與遊戲按鈕 (綠色 Success 風格 + 勾勾 Emoji)
+    @discord.ui.button(label='參與遊戲', style=discord.ButtonStyle.success, emoji='✅', custom_id='join_game_btn')
+    async def join_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # 這裡寫點擊「參與遊戲」後的邏輯
+        await interaction.response.send_message(f"@{interaction.user.name} 成功參與遊戲！", ephemeral=True)
+
+    # 開始遊戲按鈕 (灰色 Secondary 風格 + 橘色/黃色方塊 Emoji)
+    @discord.ui.button(label='開始遊戲', style=discord.ButtonStyle.secondary, emoji='🟧', custom_id='start_game_btn')
+    async def start_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # 這裡寫點擊「開始遊戲」後的邏輯
+        await interaction.response.send_message("遊戲即將開始！", ephemeral=True)
+
+
+
+@bot.command(name='testbtn')
+@commands.is_owner()
+async def testbtn(ctx):
+    # 取得機器人頭貼作為縮圖
+    bot_avatar_url = bot.user.display_avatar.url if bot.user else ""
+
+    # 建立 Embed 效果
+    ec = discord.Embed(
+        title="多人 21 點",
+        description="運氣與策略的完美結合\n\n目標是讓手牌點數盡量接近 21 點但不超過。多人同桌競技，和朋友較量運氣與判斷力，看誰最先達到完美點數",
+        colour=discord.Color.from_rgb(40, 40, 45)
+    )
+    
+    if bot_avatar_url:
+        ec.set_thumbnail(url=bot_avatar_url)
+
+    # 帶入之前寫好的按鈕 View
+    my_view = BlackjackView()
+
+    # 發送訊息
+    await ctx.send(embed=ec, view=my_view)
+
+@bot.tree.command(name="testbtn", description="發送多人21點測試按鈕")
+@commands.is_owner()
+async def testbtn(interaction: discord.Interaction):
+    # 取得機器人頭貼作為縮圖
+    bot_avatar_url = bot.user.display_avatar.url if bot.user else ""
+
+    # 建立 Embed 效果
+    ec = discord.Embed(
+        title="多人 21 點",
+        description="運氣與策略的完美結合\n\n目標是讓手牌點數盡量接近 21 點但不超過。多人同桌競技，和朋友較量運氣與判斷力，看誰最先達到完美點數",
+        colour=discord.Color.from_rgb(40, 40, 45)
+    )
+    
+    if bot_avatar_url:
+        ec.set_thumbnail(url=bot_avatar_url)
+
+    # 帶入按鈕 View
+    my_view = BlackjackView()
+
+    # 因為是 Interaction，必須透過 response.send_message 發送
+    await interaction.response.send_message(embed=ec, view=my_view)
+
 @bot.command()
 async def help(ctx, help=None):
     tell=r'https://telegra.ph/xxxxxx(xxx通常會為一大串 直接貼上即可)'
