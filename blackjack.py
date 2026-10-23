@@ -50,15 +50,41 @@ class PlayerControlView(discord.ui.View):
         score = self.game_view.calculate_score(current_hand)
         hand_len = len(current_hand)
 
-        # 檢查是否達成 5 張牌 (五小龍) 或 爆牌
+        # 1. 檢查 5 張牌規則 (五小龍)
         if hand_len >= 5 and score <= 21:
-            await interaction.response.send_message(f"🎉 恭喜達成 **5張牌上限（五小龍）**！系統已自動為您停牌。\n您的手牌: {self.game_view.format_hand(current_hand, hide_first=False)} (點數: {score})", ephemeral=True)
+            await interaction.response.send_message(
+                f"🎉 恭喜達成 **5張牌上限（五小龍）**！系統已自動為您停牌。\n"
+                f"您的手牌: {self.game_view.format_hand(current_hand, hide_first=False)} (點數: {score})",
+                ephemeral=True
+            )
             await self.game_view.next_turn()
-        elif score >= 21:
-            await interaction.response.send_message(f"💥 哎呀，爆牌了！\n您的手牌: {self.game_view.format_hand(current_hand, hide_first=False)} (點數: {score})", ephemeral=True)
+
+        # 2. 修正：只有大於 21 點才是爆牌
+        elif score > 21:
+            await interaction.response.send_message(
+                f"💥 哎呀，爆牌了！\n"
+                f"您的手牌: {self.game_view.format_hand(current_hand, hide_first=False)} (點數: {score})",
+                ephemeral=True
+            )
             await self.game_view.next_turn()
+
+        # 3. 新增：剛好 21 點時，恭喜玩家並自動停牌
+        elif score == 21:
+            await interaction.response.send_message(
+                f"✨ 恭喜達到 **21 點**！系統已自動為您停牌。\n"
+                f"您的手牌: {self.game_view.format_hand(current_hand, hide_first=False)}",
+                ephemeral=True
+            )
+            await self.game_view.next_turn()
+
+        # 4. 未滿 21 點且未滿 5 張牌
         else:
-            await interaction.response.send_message(f"🃏 你抽到了 `{card['suit']}{card['rank']}`\n目前手牌: {self.game_view.format_hand(current_hand, hide_first=False)}\n目前點數: **{score} 點** (目前共 {hand_len} 張)", ephemeral=True)
+            await interaction.response.send_message(
+                f"🃏 你抽到了 `{card['suit']}{card['rank']}`\n"
+                f"目前手牌: {self.game_view.format_hand(current_hand, hide_first=False)}\n"
+                f"目前點數: **{score} 點** (目前共 {hand_len} 張)",
+                ephemeral=True
+            )
 
         await self.game_view.update_public_message()
 
