@@ -621,37 +621,64 @@ async def on_message(msg):
 
 @bot.event
 async def on_command_error(ctx, error):
-    if hasattr(ctx.command, "on_error"):
-        return
-        
-    if isinstance(error, commands.errors.MissingRequiredArgument):
-        await ctx.reply(f"❌ 缺少必要的參數！請檢查你的指令格式。", delete_after=30)
-    elif isinstance(error, commands.errors.MissingPermissions):
-        await ctx.reply(f"❌ 權限不足：你沒有權限執行此指令！", delete_after=30)  
-    elif isinstance(error, commands.CommandOnCooldown):
-        await ctx.reply(f'冷卻中,{error.retry_after:.2f}秒', delete_after=10)
-    elif isinstance(error, commands.MaxConcurrencyReached):
-        await ctx.reply('此命令設有可同時使用次數限制', delete_after=30)         
-    elif isinstance(error, commands.NotOwner):
-        await ctx.reply(f"❌ 權限不足：此指令僅限機器人擁有者使用。", delete_after=30)
-    else:
-        # 回覆使用者已發生未知錯誤並停止執行（使用 reply）
-        await ctx.reply("❌ 出現問題，已停止目前指令執行，已將問題回報給開發者", delete_after=30)
-        
-        tb_msg = "".join(
-            traceback.format_exception(
-                type(error), error, error.__traceback__
-            )
+  if hasattr(ctx.command, "on_error"):
+    return
+
+  # 建立安全且無通知的回覆函式 (silent=True 確保不會發出提示音/推播)
+  async def safe_reply(content, delete_after=None, **kwargs):
+    try:
+      return await ctx.reply(
+          content,
+          mention_author=False,
+          silent=True,
+          delete_after=delete_after,
+          **kwargs,
+      )
+    except Exception:
+      try:
+        return await ctx.send(
+            content, silent=True, delete_after=delete_after, **kwargs
         )
-        # 防範訊息超過 Discord 2000 字元限制
-        if len(tb_msg) > 1900:
-            tb_msg = tb_msg[:1900] + "\n... (訊息過長已截斷)"
-        
-        # 發送到指定的錯誤記錄頻道（維持 channel.send）
-        channel = bot.get_channel(1533491542113779865)
-        if channel:
-            await channel.send(f"```python\n{tb_msg}\n```")
-        raise error
+      except Exception:
+        try:
+          return await ctx.channel.send(
+              content, silent=True, delete_after=delete_after, **kwargs
+          )
+        except Exception:
+          pass
+
+  if isinstance(error, commands.errors.MissingRequiredArgument):
+    await safe_reply(f"❌ 缺少必要的參數！請檢查你的指令格式。", delete_after=30)
+  elif isinstance(error, commands.errors.MissingPermissions):
+    await safe_reply(f"❌ 權限不足：你沒有權限執行此指令！", delete_after=30)
+  elif isinstance(error, commands.CommandOnCooldown):
+    await safe_reply(f"冷卻中,{error.retry_after:.2f}秒", delete_after=10)
+  elif isinstance(error, commands.MaxConcurrencyReached):
+    await safe_reply("此命令設有可同時使用次數限制", delete_after=30)
+  elif isinstance(error, commands.NotOwner):
+    await safe_reply(f"❌ 權限不足：此指令僅限機器人擁有者使用。", delete_after=30)
+  else:
+    # 1. 無通知回覆使用者發生未知錯誤
+    await safe_reply(
+        "❌ 出現問題，已停止目前指令執行，已將問題回報給開發者", delete_after=30
+    )
+
+    # 2. 組合 Traceback
+    tb_msg = "".join(
+        traceback.format_exception(type(error), error, error.__traceback__)
+    )
+    if len(tb_msg) > 1900:
+      tb_msg = tb_msg[:1900] + "\n... (訊息過長已截斷)"
+
+    # 3. 發送到指定的開發者錯誤記錄頻道
+    channel = bot.get_channel(1533491542113779865)
+    if channel:
+      try:
+        await channel.send(f"```python\n{tb_msg}\n```")
+      except Exception as e:
+        print(f"發送錯誤日誌到開發者頻道失敗: {e}")
+
+    raise error
 
 
 
@@ -792,14 +819,19 @@ async def www(ctx,member:discord.Member,*,mes):
 
 @bot.command()
 async def n(ctx,bbb=None):
+    def fetch_and_parse():
+            res = requests.get(
+                f'https://www.wn07.cfd/photos-index-aid-{bbb}.html', timeout=10
+            )
+            res.raise_for_status()
+            return BeautifulSoup(res.text, features='lxml')
     if bbb==None:
-        await ctx.send('你沒有給我番號,我將隨機生成')
+        await ctx.reply('你沒有給我番號,我將隨機生成', mention_author=False)
         while True:
             bbb=random.randint(100000,999999)
             print(bbb)   
             try:
-                req=requests.get(f'https://nhentai.net/g/{bbb}/')
-                soup=BeautifulSoup(req.text,features='lxml')
+                soup = await asyncio.to_thread(fetch_and_parse)
                 imgs=soup.select('img')[2]
                 app=imgs['src']
                 title=soup.select('span')
@@ -808,13 +840,13 @@ async def n(ctx,bbb=None):
                 continue
     else:
         try:
-                req=requests.get(f'https://nhentai.net/g/{bbb}/')
-                soup=BeautifulSoup(req.text,features='lxml')
+                soup = await asyncio.to_thread(fetch_and_parse)
                 imgs=soup.select('img')[2]
                 app=imgs['src']
                 title=soup.select('span')
         except:
-                await ctx.send('搜尋失敗')        
+                await ctx.reply('搜尋失敗', mention_author=False)       
+    
     title3=[]
     asa=[]
     asa2=[]
@@ -843,7 +875,7 @@ async def n(ctx,bbb=None):
     try:
         asa2.append(str(asa[-1]).split('>')[1].split('<')[0])
     except:
-        await ctx.send('搜不到')
+        await ctx.reply('搜不到')
         return
     ec=discord.Embed(title=f':link:{title3[0]}',description='點上面標題可直接到網站',url=f'https://nhentai.net/g/{bbb}/',colour=discord.Color.random())
     ec.add_field(name='ℹ️番號:',value=bbb)
@@ -853,7 +885,7 @@ async def n(ctx,bbb=None):
     ec.set_image(url=app)
     ec.set_thumbnail(url='https://i.imgur.com/uLAimaY.png')
     ec.set_footer(text='語言僅供參考,未必準確,None表示沒抓到')
-    await ctx.send(embed=ec)     
+    await ctx.reply(embed=ec, mention_author=False)     
 
 
 
@@ -863,18 +895,24 @@ async def h(ctx, bbb=None):
         await ctx.send('沒有給我番號')
         
     # 抓取指定番號頁面
-    try:
-        res = requests.get(f'https://www.wn07.cfd/photos-index-aid-{bbb}.html', timeout=10)
+    def fetch_and_parse():
+        res = requests.get(
+            f'https://www.wn07.cfd/photos-index-aid-{bbb}.html', timeout=10
+        )
         res.raise_for_status()
-        soup = BeautifulSoup(res.text, features='lxml')
+        return BeautifulSoup(res.text, features='lxml')
+
+    try:
+        # 使用 asyncio.to_thread 執行同步任務，不阻塞機器人
+        soup = await asyncio.to_thread(fetch_and_parse)
     except Exception:
-        await ctx.send('搜尋不到該番號或網站無法連線。')
+        await ctx.reply('搜尋不到該番號或網站無法連線。', mention_author=False)
         return  
 
     # 安全地解析元素
     imgs = soup.select('img')
     if len(imgs) < 6:
-        await ctx.send('頁面解析失敗（圖片數量不足或番號不存在）。')
+        await ctx.reply('頁面解析失敗（圖片數量不足或番號不存在）。', mention_author=False)
         return
 
     title = imgs[2].get('alt', '無標題')
@@ -901,9 +939,206 @@ async def h(ctx, bbb=None):
         img_url = image if image.startswith('http') else f'https:{image[2:]}'
         ec.set_image(url=img_url)
 
-    await ctx.send(embed=ec)
+    await ctx.reply(embed=ec, mention_author=False)
+
+@bot.command()
+async def w(ctx, bbb=None):
+    if not bbb.isdigit():
+        await ctx.reply('只能給番號(全數字)', mention_author=False)
+
+    try:
+        album_id = bbb
+        album = client.get_album_detail(album_id)
+    except:
+        await ctx.reply('無此漫畫 請重新檢查', mention_author=False)
+        return
+
+    chapter_count = len(album)
+    is_single = (chapter_count <= 1)
+
+    pages_info = None
+    desc_info = None
+
+    if is_single:
+        # 單本/單話：抓取頁數資訊
+        if chapter_count > 0:
+            first_photo_summary = album[0]
+            photo_detail = client.get_photo_detail(first_photo_summary.photo_id)
+            pages_info = f"{len(photo_detail)} 頁"
+        else:
+            pages_info = "未知"
+    else:
+        # 連載作品：抓取作品簡介 (如果 description 為空則顯示預設字串)
+        desc_info = album.description.strip() if (album.description and album.description.strip()) else '無簡介資訊'
+
+    # 5. 標籤處理 (最多顯示前 10 個)
+    tags = album.tags[:10] if album.tags else []
+    tags_str = ', '.join(tags) if tags else '無'
+
+    cover_url = jmcomic.JmcomicText.get_album_cover_url(album_id)
+    ec = discord.Embed(
+            title=album.title,
+            description='點上面標題可直接到網站',
+            url=f'https://18comic.vip/album/{bbb}/',
+            colour=discord.Color.random()
+        )
+    ec.add_field(name='番號:', value=bbb, inline=True)
+    ec.add_field(name='作者:', value=album.author, inline=True)
+    ec.add_field(name='是否為單本/單話 :', value=f" {'是 (單本/單話)' if is_single else f'否 (連載/共 {chapter_count} 章)'}", inline=False)
+    if is_single:
+            ec.add_field(name='總頁數:', value=pages_info, inline=True)
+    else:
+            ec.add_field(name='作品簡介:', value=desc_info, inline=False)
+    ec.add_field(name='作品標籤:', value=tags_str, inline=False)
+    ec.set_image(url=cover_url)
+    ec.set_footer(
+            text=
+            f'{owneruser}\n作者祝您使用愉快'
+        )
+
+    await ctx.reply(embed=ec, mention_author=False)
 
 
+
+@bot.command()
+async def tel(ctx,bbb):
+    try:
+                        # 將會阻塞的 requests.get 丟到背景執行緒
+        rr = await asyncio.to_thread(requests.get, bbb)
+        rr.raise_for_status()
+    except Exception:
+        await ctx.reply(
+            'telegram漫畫不能有除了連結以外的字符或空白鍵 或是 連結無效', mention_author=False
+        )
+        return  # 🔴 這裡一定要有 return，否則發生錯誤後程式會繼續往下跑而崩潰！
+    soup = BeautifulSoup(rr.text, features='lxml')
+    title=soup.select('title')[0].text.split('- Page 1 –')[0]
+    pages=len(soup.select('img'))
+    image=soup.select('img')[0]['src']
+    ec = discord.Embed(
+            title=f'{title}',
+            description='點上面標題可直接到網站',
+            url=bbb,
+            colour=discord.Color.random()
+        )
+    ec.add_field(name='頁數:', value=pages, inline=False)
+    ec.set_image(url=image)
+    try:
+        await ctx.message.edit(suppress=True)
+    except:
+        pass
+    await ctx.reply(embed=ec, mention_author=False)
+
+@bot.command()
+async def eh(ctx, target_url):
+    headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36"
+        }
+    
+  
+    res = await asyncio.to_thread(
+                        requests.get, target_url, headers=headers, timeout=10
+                    )
+    
+    if res.status_code != 200:
+        await ctx.reply(f"無法存取頁面，狀態碼: {res.status_code}", mention_author=False)
+        return
+
+    res.encoding = "utf-8"
+    soup = BeautifulSoup(res.text, "html.parser")
+
+    # 解析基本資訊
+    title_el = soup.find("h1", id="gn")
+    title = title_el.text.strip() if title_el else "無標題"
+
+    cover_el = soup.select_one("#gd1 div")
+    cover_url = ""
+    if cover_el and "style" in cover_el.attrs:
+        match = re.search(r"url\((.*?)\)", cover_el["style"])
+        if match:
+            cover_url = match.group(1).strip("\"'")
+
+    gdd_data = {}
+    for row in soup.select("#gdd tr"):
+        cols = row.find_all("td")
+        if len(cols) == 2:
+            gdd_data[cols[0].text.strip().rstrip(":")] = (
+                cols[1].text.strip()
+            )
+
+    posted_time = gdd_data.get("Posted", "未知")
+    language = gdd_data.get("Language", "未知").split(" ")[0]
+    length = gdd_data.get("Length", "未知")
+    favorites = gdd_data.get("Favorited", "0")
+
+    tags_by_group = {}
+    for row in soup.select("#taglist tr"):
+        tc = row.find("td", class_="tc")
+        if tc:
+            group_name = tc.text.strip().rstrip(":")
+            tags_by_group[group_name] = [
+                t.text.strip() for t in row.select("td div a")
+            ]
+
+    # 解析作者 (只取第一個)
+    authors = tags_by_group.get("artist", []) + tags_by_group.get(
+        "group", []
+    )
+    author_str = authors[0] if authors else "未知"
+
+    # 標籤查表與限制前 10 個
+    raw_female_tags = tags_by_group.get("female", [])[:10]
+    female_tags = [
+        TAG_DICT.get(f"female:{tag}", TAG_DICT.get(tag, tag))
+        for tag in raw_female_tags
+    ]
+
+    raw_male_tags = tags_by_group.get("male", [])[:10]
+    male_tags = [
+        TAG_DICT.get(f"male:{tag}", TAG_DICT.get(tag, tag))
+        for tag in raw_male_tags
+    ]
+
+    parody_tags = tags_by_group.get("parody", [])
+    if "original" in parody_tags:
+        parody_info = "原創 (Original)"
+    elif parody_tags:
+        translated_parody = [
+            TAG_DICT.get(f"parody:{tag}", TAG_DICT.get(tag, tag))
+            for tag in parody_tags[:10]
+        ]
+        parody_info = ", ".join(translated_parody)
+    else:
+        parody_info = "未知 / 未標示"
+
+    ec = discord.Embed(
+        title=title,
+        url=target_url,
+        colour=discord.Color.random(),
+    )
+    if cover_url:
+        ec.set_image(url=cover_url)
+
+    ec.add_field(name="作者", value=author_str, inline=True)
+    ec.add_field(name="語言", value=language, inline=True)
+    ec.add_field(name="頁數", value=length, inline=True)
+    ec.add_field(name="收藏數", value=favorites, inline=True)
+    ec.add_field(name="上傳時間", value=posted_time, inline=True)
+    ec.add_field(name="戲仿/原作", value=parody_info, inline=True)
+
+    ec.add_field(
+        name="女性標籤 (前10個)",
+        value=", ".join(female_tags) if female_tags else "無",
+        inline=False,
+    )
+    ec.add_field(
+        name="男性標籤 (前10個)",
+        value=", ".join(male_tags) if male_tags else "無",
+        inline=False,
+    )
+    await ctx.reply(embed=ec, mention_author=False)
+
+    
 class BlackjackView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None) # 如果希望按鈕永久有效（機器人重啟也能用），設定 timeout=None
