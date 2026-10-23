@@ -50,41 +50,18 @@ class PlayerControlView(discord.ui.View):
         score = self.game_view.calculate_score(current_hand)
         hand_len = len(current_hand)
 
-        # 1. 檢查 5 張牌規則 (五小龍)
+        # 檢查是否達成 5 張牌 (五小龍) 或 爆牌 / 21點
         if hand_len >= 5 and score <= 21:
-            await interaction.response.send_message(
-                f"🎉 恭喜達成 **5張牌上限（五小龍）**！系統已自動為您停牌。\n"
-                f"您的手牌: {self.game_view.format_hand(current_hand, hide_first=False)} (點數: {score})",
-                ephemeral=True
-            )
+            await interaction.response.send_message(f"🎉 恭喜達成 **5張牌上限（五小龍）**！系統已自動為您停牌。\n您的手牌: {self.game_view.format_hand(current_hand, hide_first=False)} (點數: {score})", ephemeral=True)
             await self.game_view.next_turn()
-
-        # 2. 修正：只有大於 21 點才是爆牌
         elif score > 21:
-            await interaction.response.send_message(
-                f"💥 哎呀，爆牌了！\n"
-                f"您的手牌: {self.game_view.format_hand(current_hand, hide_first=False)} (點數: {score})",
-                ephemeral=True
-            )
+            await interaction.response.send_message(f"💥 哎呀，爆牌了！\n您的手牌: {self.game_view.format_hand(current_hand, hide_first=False)} (點數: {score})", ephemeral=True)
             await self.game_view.next_turn()
-
-        # 3. 新增：剛好 21 點時，恭喜玩家並自動停牌
         elif score == 21:
-            await interaction.response.send_message(
-                f"✨ 恭喜達到 **21 點**！系統已自動為您停牌。\n"
-                f"您的手牌: {self.game_view.format_hand(current_hand, hide_first=False)}",
-                ephemeral=True
-            )
+            await interaction.response.send_message(f"✨ 恭喜達到 **21 點**！系統已自動為您停牌。\n您的手牌: {self.game_view.format_hand(current_hand, hide_first=False)}", ephemeral=True)
             await self.game_view.next_turn()
-
-        # 4. 未滿 21 點且未滿 5 張牌
         else:
-            await interaction.response.send_message(
-                f"🃏 你抽到了 `{card['suit']}{card['rank']}`\n"
-                f"目前手牌: {self.game_view.format_hand(current_hand, hide_first=False)}\n"
-                f"目前點數: **{score} 點** (目前共 {hand_len} 張)",
-                ephemeral=True
-            )
+            await interaction.response.send_message(f"🃏 你抽到了 `{card['suit']}{card['rank']}`\n目前手牌: {self.game_view.format_hand(current_hand, hide_first=False)}\n目前點數: **{score} 點** (目前共 {hand_len} 張)", ephemeral=True)
 
         await self.game_view.update_public_message()
 
@@ -250,18 +227,19 @@ class BlackjackGameView(discord.ui.View):
             should_hide_first = not self.game_over and not is_bust
             hand_display = self.format_hand(hand, hide_first=should_hide_first)
 
+            # 💡 修正：只有在爆牌（隨時公開）或遊戲結束時，才顯示詳細狀態，避免在盲牌階段洩漏 21 點或五小龍
             status = ""
             if is_bust:
                 status = " 💥 爆牌!"
-            elif is_five_cards:
-                status = " 🐉 5張牌(自動21點)!"
-            elif score == 21:
-                status = " ✨ 21點!"
+            elif self.game_over:
+                if is_five_cards:
+                    status = " 🐉 5張牌(自動21點)!"
+                elif score == 21:
+                    status = " ✨ 21點!"
             
             is_turn = (i == self.current_player_index and not self.game_over)
             pointer = "▶️ **[思考中...]** " if is_turn else ""
             
-            # 💡 修正：移除 is_turn 條件，確保在大廳中未結束/未爆牌前絕對不顯示個人點數（維持 ??）
             embed.add_field(
                 name=f"{pointer}玩家: {names[p.id]} ({len(hand)}張牌)",
                 value=f"手牌: {hand_display}\n點數: {score if (self.game_over or is_bust) else '??'}{status}",
@@ -474,7 +452,6 @@ class BlackjackLobbyView(discord.ui.View):
             await interaction.response.send_message("目前沒有任何玩家，無法開始！", ephemeral=True)
             return
         
-        # 💡 新增：不足 4 人時，由 AI 機器人自動補齊至 4 人！
         bot_pool = ["賭神小艾", "牌局小助手", "牌桌路人甲", "摸魚高手"]
         while len(self.players) < 4:
             used_names = [p.display_name for p in self.players]
@@ -509,7 +486,7 @@ class BlackjackCombined(commands.Cog):
         else:
             await ctx.send(f"❌ 發生未預期的錯誤：\n```py\n{error}\n```", delete_after=10)
 
-    # 1. 傳統文字指令：維持單人模式（不變）
+    # 1. 傳統文字指令：單人盲牌對戰（帶 2 位 AI）
     @commands.command(name="blackjack", aliases=["21點"])
     async def blackjack_prefix(self, ctx):
         players = [ctx.author, AIBotPlayer("賭神小艾"), AIBotPlayer("牌局小助手")]
