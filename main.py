@@ -95,18 +95,18 @@ async def on_ready():
     global bot_avatar_url
     bot_avatar_url=bot.user.display_avatar.url if bot.user else ""
     try:
-        synced = await bot.tree.sync()
-        slash=f"已成功同步 {len(synced)} 個 Slash 指令!"
-    except Exception as e:
-        slash=f"同步指令失敗: {e}"
-    try:
         await bot.load_extension('blackjack')
         cogg=("已成功載入 blackjack 模組！")
     except Exception as e:
         cogg=(f"載入 21點 模組失敗: {e}")
+    try:
+        synced = await bot.tree.sync()
+        slash=f"已成功同步 {len(synced)} 個 Slash 指令!"
+    except Exception as e:
+        slash=f"同步指令失敗: {e}"
+    
     content='```'+'\n'+pathpath+'\n'+slash+'\n'+cogg+'```'
     await bot.get_channel(1533491542113779865).send(content)
-
 
 @bot.event
 async def on_message(msg):
