@@ -87,6 +87,7 @@ async def on_ready():
     print(bot.user.name)
     print(bot.user.id)
     print('---------')
+    ppp=await bot.get_channel(1533491542113779865).send('標籤資料庫載入中')
     global owneruser
     owneruser=f'\nbot製作人: {(bot.get_user(613578839372857383))}'
     global pathpath
@@ -94,19 +95,25 @@ async def on_ready():
         pathpath="標籤資料庫載入完成！"
     else:
         pathpath=f"警告：找不到 {JSON_FILE_PATH}，將使用原始英文標籤。"
+    
     global bot_avatar_url
     bot_avatar_url=bot.user.display_avatar.url if bot.user else ""
-    try:
-        await bot.load_extension('blackjack')
-        cogg=("已成功載入 blackjack 模組！")
-    except Exception as e:
-        cogg=(f"載入 21點 模組失敗: {e}")
+    cogg=''
+    cogpys=['blackjack','uno']
+    for i in cogpys:
+        try:
+            await ppp.edit(content=f'模組{i}載入中')
+            await bot.load_extension(i)
+            cogg+=(f"已成功載入 {i} 模組！\n")
+        except Exception as e:
+            cogg+=(f"載入 {i} 模組失敗: {e}\n")
+    await ppp.edit(content='slash指令同步中')
     try:
         synced = await bot.tree.sync()
         slash=f"已成功同步 {len(synced)} 個 Slash 指令!"
     except Exception as e:
         slash=f"同步指令失敗: {e}"
-    
+    await ppp.delete()
     content='```'+'\n'+pathpath+'\n'+slash+'\n'+cogg+'```'
     await bot.get_channel(1533491542113779865).send(content)
 
