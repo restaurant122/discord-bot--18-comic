@@ -21,7 +21,6 @@ class PlayerControlView(discord.ui.View):
         self.player_id = player_id
 
     async def on_timeout(self):
-        # Ephemeral 視圖逾時自動清空按鈕
         self.clear_items()
 
     @discord.ui.button(label="要牌 (Hit)", style=discord.ButtonStyle.success, emoji="🃏")
@@ -41,7 +40,6 @@ class PlayerControlView(discord.ui.View):
 
         current_hand = self.game_view.hands[current_user.id]
 
-        # 檢查抽牌上限 5 張
         if len(current_hand) >= 5:
             await interaction.response.send_message("⚠️ 抽牌上限為 **5張**！已自動為您強制停牌。", ephemeral=True)
             await self.game_view.next_turn()
@@ -53,7 +51,6 @@ class PlayerControlView(discord.ui.View):
         score = self.game_view.calculate_score(current_hand)
         hand_len = len(current_hand)
 
-        # 判定五小龍 / 爆牌 / 21 點
         if hand_len >= 5 and score <= 21:
             await interaction.response.send_message(f"🎉 恭喜達成 **5張牌上限（五小龍）**！系統已自動為您停牌。\n您的手牌: {self.game_view.format_hand(current_hand, hide_first=False)} (點數: {score})", ephemeral=True)
             await self.game_view.next_turn()
@@ -110,7 +107,6 @@ class BlackjackGameView(discord.ui.View):
         self.update_main_buttons()
 
     async def on_timeout(self):
-        """當 180 秒沒有任何互動時，自動關閉按鈕並更新 Embed 提示"""
         self.clear_items()
         if self.message:
             try:
@@ -456,7 +452,6 @@ class BlackjackLobbyView(discord.ui.View):
         self.message = None
 
     async def on_timeout(self):
-        """當大廳 180 秒沒人點擊時自動關閉"""
         self.clear_items()
         if self.message:
             try:
@@ -520,14 +515,6 @@ class BlackjackLobbyView(discord.ui.View):
 class BlackjackCombined(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
-    async def cog_command_error(self, ctx: commands.Context, error: Exception):
-        if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send(f"❌ 缺少必要的參數！請檢查你的指令格式。", delete_after=10)
-        elif isinstance(error, commands.NotOwner):
-            await ctx.send(f"❌ 權限不足：此指令僅限機器人擁有者使用。", delete_after=10)
-        else:
-            await ctx.send(f"❌ 發生未預期的錯誤：\n```py\n{error}\n```", delete_after=10)
 
     @commands.command(name="blackjack", aliases=["21點"])
     async def blackjack_prefix(self, ctx):
