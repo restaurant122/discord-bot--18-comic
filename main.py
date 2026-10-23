@@ -620,30 +620,39 @@ async def on_message(msg):
  
 
 @bot.event
-async def on_command_error(ctx,error):
-    if hasattr(ctx.command,"on_error"):
+async def on_command_error(ctx, error):
+    if hasattr(ctx.command, "on_error"):
         return
-    if isinstance(error,commands.errors.MissingRequiredArgument):
-        await ctx.send("沒有給參數")
-    elif isinstance(error,commands.errors.MissingPermissions):
-        await ctx.send("沒有權限")  
-    elif isinstance(error,commands.CommandOnCooldown):
-        await ctx.send(f'冷卻中啦,{error.retry_after:.2f}秒')
-    elif isinstance(error,commands.MaxConcurrencyReached):
-        await ctx.send('此命令設有可同時使用次數限制') 
-    elif  isinstance(error,commands.errors.CommandNotFound):
-            pass          
+        
+    if isinstance(error, commands.errors.MissingRequiredArgument):
+        await ctx.reply(f"❌ 缺少必要的參數！請檢查你的指令格式。", delete_after=30)
+    elif isinstance(error, commands.errors.MissingPermissions):
+        await ctx.reply(f"❌ 權限不足：你沒有權限執行此指令！", delete_after=30)  
+    elif isinstance(error, commands.CommandOnCooldown):
+        await ctx.reply(f'冷卻中,{error.retry_after:.2f}秒', delete_after=10)
+    elif isinstance(error, commands.MaxConcurrencyReached):
+        await ctx.reply('此命令設有可同時使用次數限制', delete_after=30)         
+    elif isinstance(error, commands.NotOwner):
+        await ctx.reply(f"❌ 權限不足：此指令僅限機器人擁有者使用。", delete_after=30)
     else:
-            tb_msg = "".join(
-                    traceback.format_exception(
-                        type(error), error, error.__traceback__
-                    )
-                )
-                # 防範訊息超過 Discord 2000 字元限制
-            if len(tb_msg) > 1900:
-                tb_msg = tb_msg[:1900] + "\n... (訊息過長已截斷)"
-            await bot.get_channel(1533491542113779865).send(f"```python\n{tb_msg}\n```")
-            raise error     
+        # 回覆使用者已發生未知錯誤並停止執行（使用 reply）
+        await ctx.reply("❌ 出現問題，已停止目前指令執行，已將問題回報給開發者", delete_after=30)
+        
+        tb_msg = "".join(
+            traceback.format_exception(
+                type(error), error, error.__traceback__
+            )
+        )
+        # 防範訊息超過 Discord 2000 字元限制
+        if len(tb_msg) > 1900:
+            tb_msg = tb_msg[:1900] + "\n... (訊息過長已截斷)"
+        
+        # 發送到指定的錯誤記錄頻道（維持 channel.send）
+        channel = bot.get_channel(1533491542113779865)
+        if channel:
+            await channel.send(f"```python\n{tb_msg}\n```")
+        raise error
+
 
 
 @bot.command()
