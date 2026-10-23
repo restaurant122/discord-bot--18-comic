@@ -957,6 +957,39 @@ async def testbtn(interaction: discord.Interaction):
     # 因為是 Interaction，必須透過 response.send_message 發送
     await interaction.response.send_message(embed=ec, view=my_view)
 
+from typing import Optional
+from discord import app_commands
+
+@bot.hybrid_command(name="reload", description="重新載入指定的 Cog 模組，不填則重載全部 (僅限擁有者)")
+@commands.is_owner()
+@app_commands.describe(extension="要重新載入的檔案名稱 (若不填，則預設重載全部已載入的模組)")
+async def reload(ctx: commands.Context, extension: Optional[str] = None):
+    try:
+        # 同步 Slash 指令
+        synced = await bot.tree.sync()
+
+        if extension:
+            # 1. 如果有指定特定的模組名稱
+            await bot.reload_extension(extension)
+            await ctx.send(f"✅ 成功重新載入模組：`{extension}`！已同步 {len(synced)} 個 Slash 指令。")
+        else:
+            # 2. 如果沒有給檔案名，自動抓取全部已載入的模組進行重載
+            if not bot.extensions:
+                await ctx.send("⚠️ 目前沒有任何已載入的模組。")
+                return
+
+            reloaded_list = []
+            # 複製一份 keys 避免在迭代時動態修改字典報錯
+            for ext in list(bot.extensions.keys()):
+                await bot.reload_extension(ext)
+                reloaded_list.append(ext)
+
+            modules_str = ", ".join([f"`{e}`" for e in reloaded_list])
+            await ctx.send(f"✅ 成功重新載入**全部**共 {len(reloaded_list)} 個模組：\n{modules_str}\n已同步 {len(synced)} 個 Slash 指令。")
+
+    except Exception as e:
+        await ctx.send(f"❌ 重新載入失敗：\n```py\n{e}\n```")
+
 @bot.command()
 async def help(ctx, help=None):
     tell=r'https://telegra.ph/xxxxxx(xxx通常會為一大串 直接貼上即可)'
