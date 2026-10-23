@@ -10,6 +10,8 @@ import re
 from bs4 import BeautifulSoup
 import jmcomic
 import traceback
+from typing import Optional
+from discord import app_commands
 
 jmcomic.JmModuleConfig.FLAG_API_CLIENT_AUTO_UPDATE_DOMAIN = False
 
@@ -619,70 +621,7 @@ async def on_message(msg):
 
  
 
-@bot.event
-async def on_command_error(ctx, error):
-  if hasattr(ctx.command, "on_error"):
-    return
-
-  # 建立安全且無通知的回覆函式 (silent=True 確保不會發出提示音/推播)
-  async def safe_reply(content, delete_after=None, **kwargs):
-    try:
-      return await ctx.reply(
-          content,
-          mention_author=False,
-          silent=True,
-          delete_after=delete_after,
-          **kwargs,
-      )
-    except Exception:
-      try:
-        return await ctx.send(
-            content, silent=True, delete_after=delete_after, **kwargs
-        )
-      except Exception:
-        try:
-          return await ctx.channel.send(
-              content, silent=True, delete_after=delete_after, **kwargs
-          )
-        except Exception:
-          pass
-
-  if isinstance(error, commands.errors.MissingRequiredArgument):
-    await safe_reply(f"❌ 缺少必要的參數！請檢查你的指令格式。", delete_after=30)
-  elif isinstance(error, commands.errors.MissingPermissions):
-    await safe_reply(f"❌ 權限不足：你沒有權限執行此指令！", delete_after=30)
-  elif isinstance(error, commands.CommandOnCooldown):
-    await safe_reply(f"冷卻中,{error.retry_after:.2f}秒", delete_after=10)
-  elif isinstance(error, commands.MaxConcurrencyReached):
-    await safe_reply("此命令設有可同時使用次數限制", delete_after=30)
-  elif isinstance(error, commands.NotOwner):
-    await safe_reply(f"❌ 權限不足：此指令僅限機器人擁有者使用。", delete_after=30)
-  else:
-    # 1. 無通知回覆使用者發生未知錯誤
-    await safe_reply(
-        "❌ 出現問題，已停止目前指令執行，已將問題回報給開發者", delete_after=30
-    )
-
-    # 2. 組合 Traceback
-    tb_msg = "".join(
-        traceback.format_exception(type(error), error, error.__traceback__)
-    )
-    if len(tb_msg) > 1900:
-      tb_msg = tb_msg[:1900] + "\n... (訊息過長已截斷)"
-
-    # 3. 發送到指定的開發者錯誤記錄頻道
-    channel = bot.get_channel(1533491542113779865)
-    if channel:
-      try:
-        await channel.send(f"```python\n{tb_msg}\n```")
-      except Exception as e:
-        print(f"發送錯誤日誌到開發者頻道失敗: {e}")
-
-    raise error
-
-
-
-@bot.command()
+@bot.hybrid_command(name="sev", description="sev")
 @commands.is_owner()
 async def sev(ctx):
     em = discord.Embed(title="伺服器狀態", color=discord.Color.random())
@@ -697,7 +636,7 @@ async def sev(ctx):
         em.set_thumbnail(url=ctx.guild.icon.url)
         
     em.set_footer(text="查詢系統")
-    await ctx.send(embed=em)
+    await ctx.reply(embed=em, mention_author=False)
     
     ccc = []
     for namea in ctx.guild.roles:
@@ -709,12 +648,15 @@ async def sev(ctx):
         roles_str = roles_str[:4000] + "... (過長已截斷)"
         
     asa = discord.Embed(title="身分組", description=roles_str, color=discord.Color.random())
-    await ctx.send(embed=asa)
+    await ctx.reply(embed=asa, mention_author=False)
 
 
 
-@bot.command()
+@bot.hybrid_command(name="players", description="players")
 @commands.is_owner()
+@app_commands.describe(
+   member='要查的人'
+)
 async def players(ctx, member: discord.Member = None):
     member = member or ctx.author
     embed = discord.Embed(color=discord.Color.random())
@@ -732,7 +674,7 @@ async def players(ctx, member: discord.Member = None):
     embed.add_field(name="目前狀態", value=str(member.status), inline=True) 
     embed.add_field(name="最高權限身分組", value=member.top_role.mention)   
     embed.set_footer(text='查詢系統')
-    await ctx.send(embed=embed)
+    await ctx.reply(embed=embed, mention_author=False)
 
 
 class GuildPaginationView(discord.ui.View):
@@ -790,19 +732,19 @@ class GuildPaginationView(discord.ui.View):
 
 
 # 2. 伺服器列表查詢指令
-@bot.command()
+@bot.hybrid_command(name="bot_guilds", description="bot_guilds")
 @commands.is_owner()
 async def bot_guilds(ctx):
     guilds = bot.guilds
     if not guilds:
-        await ctx.send("目前機器人尚未加入任何伺服器。")
+        await ctx.reply("目前機器人尚未加入任何伺服器。", mention_author=False)
         return
 
     # 建立 View 實例（測試用 per_page=2，正式上線時可以改成 10）
     view = GuildPaginationView(guilds, per_page=10)
     
     # 發送第一頁的訊息與按鈕
-    await ctx.send(embed=view.create_embed(), view=view)
+    await ctx.reply(embed=view.create_embed(), view=view, mention_author=False)
 
 
 
@@ -817,82 +759,13 @@ async def www(ctx,member:discord.Member,*,mes):
 
 
 
-@bot.command()
-async def n(ctx,bbb=None):
-    def fetch_and_parse():
-            res = requests.get(
-                f'https://www.wn07.cfd/photos-index-aid-{bbb}.html', timeout=10
-            )
-            res.raise_for_status()
-            return BeautifulSoup(res.text, features='lxml')
-    if bbb==None:
-        await ctx.reply('你沒有給我番號,我將隨機生成', mention_author=False)
-        while True:
-            bbb=random.randint(100000,999999)
-            print(bbb)   
-            try:
-                soup = await asyncio.to_thread(fetch_and_parse)
-                imgs=soup.select('img')[2]
-                app=imgs['src']
-                title=soup.select('span')
-                break
-            except:
-                continue
-    else:
-        try:
-                soup = await asyncio.to_thread(fetch_and_parse)
-                imgs=soup.select('img')[2]
-                app=imgs['src']
-                title=soup.select('span')
-        except:
-                await ctx.reply('搜尋失敗', mention_author=False)       
-    
-    title3=[]
-    asa=[]
-    asa2=[]
-    lan=[]
-    for title2 in title:
-        try:
-            if title2['class']==['pretty']:
-                title3.append(str(title2).split('>')[1].split('<')[0])
-                break
-        except:
-            continue
-    for title2 in title:
-        try:
-            if title2['class']==['name']:
-                asa.append(title2)
-                continue
-        except:
-            continue
-    for title2 in title:
-        try:
-            if title2['class']==['after']:
-                lan.append(str(title2).split('[')[1].split(']')[0])
-                break
-        except:
-            lan.append('None')       
-    try:
-        asa2.append(str(asa[-1]).split('>')[1].split('<')[0])
-    except:
-        await ctx.reply('搜不到')
-        return
-    ec=discord.Embed(title=f':link:{title3[0]}',description='點上面標題可直接到網站',url=f'https://nhentai.net/g/{bbb}/',colour=discord.Color.random())
-    ec.add_field(name='ℹ️番號:',value=bbb)
-    ec.add_field(name=':speech_balloon:語言:',value=lan[0])
-    ec.add_field(name=':book:頁數:',value=asa2[0])
-    ec.add_field(name='封面圖',value='⬇️⬇️⬇️⬇️⬇️⬇️⬇️⬇️⬇️⬇️⬇️',inline=False)
-    ec.set_image(url=app)
-    ec.set_thumbnail(url='https://i.imgur.com/uLAimaY.png')
-    ec.set_footer(text='語言僅供參考,未必準確,None表示沒抓到')
-    await ctx.reply(embed=ec, mention_author=False)     
 
 
-
-@bot.command()
-async def h(ctx, bbb=None):
+@bot.hybrid_command(name="h", description="紳士漫畫連結修復")
+@app_commands.describe(bbb="番號")
+async def h(ctx, bbb: str=None):
     if bbb is None:
-        await ctx.send('沒有給我番號')
+        await ctx.reply('沒有給我番號', mention_author=False)
         
     # 抓取指定番號頁面
     def fetch_and_parse():
@@ -941,8 +814,10 @@ async def h(ctx, bbb=None):
 
     await ctx.reply(embed=ec, mention_author=False)
 
-@bot.command()
-async def w(ctx, bbb=None):
+
+@bot.hybrid_command(name="w", description="禁漫漫畫連結修復")
+@app_commands.describe(bbb="番號")
+async def w(ctx, bbb: str):
     if not bbb.isdigit():
         await ctx.reply('只能給番號(全數字)', mention_author=False)
 
@@ -1000,8 +875,9 @@ async def w(ctx, bbb=None):
 
 
 
-@bot.command()
-async def tel(ctx,bbb):
+@bot.hybrid_command(name="tel", description="telegram漫畫連結")
+@app_commands.describe(bbb="telegram漫畫連結")
+async def tel(ctx,bbb: str):
     try:
                         # 將會阻塞的 requests.get 丟到背景執行緒
         rr = await asyncio.to_thread(requests.get, bbb)
@@ -1029,8 +905,9 @@ async def tel(ctx,bbb):
         pass
     await ctx.reply(embed=ec, mention_author=False)
 
-@bot.command()
-async def eh(ctx, target_url):
+@bot.hybrid_command(name="eh", description="exhentai漫畫連結修復")
+@app_commands.describe(target_url="exhentai連結")
+async def eh(ctx, target_url:str):
     headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36"
         }
@@ -1138,7 +1015,38 @@ async def eh(ctx, target_url):
     )
     await ctx.reply(embed=ec, mention_author=False)
 
-    
+
+@bot.hybrid_command(name="help")
+async def help(ctx, help=None):
+    tell=r'https://telegra.ph/xxxxxx(xxx通常會為一大串 直接貼上即可)'
+    comicc=r'https://18comic.vip/album/1427038/xxxxx(xxx通常會為一大串 直接貼上即可)'
+
+    ec = discord.Embed(title='📋歡迎來到說明書📋',
+                                description=f'🔺指令前綴:`.`',
+                                colour=discord.Color.random())
+    ec.add_field(
+        name='主要功能:修復h漫畫連結',
+        value=f'```用法是直接貼連結即可 不須前綴和指令 目前支援網站:紳士漫畫,telegram漫畫,禁漫天堂，範例:\nhttps://www.wnacg.com/photos-index-aid-374687.html \n{tell}\n{comicc}```'
+        ,inline=False)
+    ec.add_field(
+        name='指令:``.h``',
+        value='```.h空一格加上番號 範例:.h 374687```'
+        ,inline=False
+    )
+    ec.add_field(
+            name='指令:``.tel``',
+            value=f'```.tel空一格加上整個網址\n範例:\n.tel {tell}```'
+            ,inline=False
+        )
+    ec.set_thumbnail(url=bot.user.avatar.url)
+    ec.set_image(url='https://media.discordapp.net/attachments/854736687002943488/891300310461587506/Tw.gif')
+    ec.set_footer(
+        text=
+        f'作者關心您\n{owneruser}'
+    )
+    await ctx.reply(embed=ec, mention_author=False)
+
+
 class BlackjackView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None) # 如果希望按鈕永久有效（機器人重啟也能用），設定 timeout=None
@@ -1201,8 +1109,7 @@ async def testbtn(interaction: discord.Interaction):
     # 因為是 Interaction，必須透過 response.send_message 發送
     await interaction.response.send_message(embed=ec, view=my_view)
 
-from typing import Optional
-from discord import app_commands
+
 
 @bot.hybrid_command(name="reload", description="重新載入指定的 Cog 模組，不填則重載全部 (僅限擁有者)")
 @commands.is_owner()
@@ -1234,35 +1141,7 @@ async def reload(ctx: commands.Context, extension: Optional[str] = None):
     except Exception as e:
         await ctx.send(f"❌ 重新載入失敗：\n```py\n{e}\n```")
 
-@bot.command()
-async def help(ctx, help=None):
-    tell=r'https://telegra.ph/xxxxxx(xxx通常會為一大串 直接貼上即可)'
-    comicc=r'https://18comic.vip/album/1427038/xxxxx(xxx通常會為一大串 直接貼上即可)'
 
-    ec = discord.Embed(title='📋歡迎來到說明書📋',
-                                description=f'🔺指令前綴:`.`',
-                                colour=discord.Color.random())
-    ec.add_field(
-        name='主要功能:修復h漫畫連結',
-        value=f'```用法是直接貼連結即可 不須前綴和指令 目前支援網站:紳士漫畫,telegram漫畫,禁漫天堂，範例:\nhttps://www.wnacg.com/photos-index-aid-374687.html \n{tell}\n{comicc}```'
-        ,inline=False)
-    ec.add_field(
-        name='指令:``.h``',
-        value='```.h空一格加上番號 範例:.h 374687```'
-        ,inline=False
-    )
-    ec.add_field(
-            name='指令:``.tel``',
-            value=f'```.tel空一格加上整個網址\n範例:\n.tel {tell}```'
-            ,inline=False
-        )
-    ec.set_thumbnail(url=bot.user.avatar.url)
-    ec.set_image(url='https://media.discordapp.net/attachments/854736687002943488/891300310461587506/Tw.gif')
-    ec.set_footer(
-        text=
-        f'作者關心您{owneruser}'
-    )
-    await ctx.send(embed=ec)
 
 
 async def main():
