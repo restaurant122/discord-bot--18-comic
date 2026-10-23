@@ -639,64 +639,66 @@ async def on_message(msg):
  
 @bot.event
 async def on_command_error(ctx, error):
-  if hasattr(ctx.command, "on_error"):
-    return
+    if hasattr(ctx.command, "on_error"):
+        return
 
-  # 建立安全且無通知的回覆函式 (silent=True 確保不會發出提示音/推播)
-  async def safe_reply(content, delete_after=None, **kwargs):
-    try:
-      return await ctx.reply(
-          content,
-          mention_author=False,
-          silent=True,
-          delete_after=delete_after,
-          **kwargs,
-      )
-    except Exception:
-      try:
-        return await ctx.send(
-            content, silent=True, delete_after=delete_after, **kwargs
-        )
-      except Exception:
+    # 建立安全且無通知的回覆函式 (silent=True 確保不會發出提示音/推播)
+    async def safe_reply(content, delete_after=None, **kwargs):
         try:
-          return await ctx.channel.send(
-              content, silent=True, delete_after=delete_after, **kwargs
-          )
+            return await ctx.reply(
+                content,
+                mention_author=False,
+                silent=True,
+                delete_after=delete_after,
+                **kwargs,
+            )
         except Exception:
-          pass
+            try:
+                return await ctx.send(
+                    content, silent=True, delete_after=delete_after, **kwargs
+                )
+            except Exception:
+                try:
+                    return await ctx.channel.send(
+                        content, silent=True, delete_after=delete_after, **kwargs
+                    )
+                except Exception:
+                    pass
 
-  if isinstance(error, commands.errors.MissingRequiredArgument):
-    await safe_reply(f"❌ 缺少必要的參數！請檢查你的指令格式。", delete_after=30)
-  elif isinstance(error, commands.errors.MissingPermissions):
-    await safe_reply(f"❌ 權限不足：你沒有權限執行此指令！", delete_after=30)
-  elif isinstance(error, commands.CommandOnCooldown):
-    await safe_reply(f"冷卻中,{error.retry_after:.2f}秒", delete_after=10)
-  elif isinstance(error, commands.MaxConcurrencyReached):
-    await safe_reply("此命令設有可同時使用次數限制", delete_after=30)
-  elif isinstance(error, commands.NotOwner):
-    await safe_reply(f"❌ 權限不足：此指令僅限機器人擁有者使用。", delete_after=30)
-  else:
-    # 1. 無通知回覆使用者發生未知錯誤
-    await safe_reply(
-        "❌ 出現問題，已停止目前指令執行，已將問題回報給開發者", delete_after=30
-    )
+    if isinstance(error, commands.errors.MissingRequiredArgument):
+        await safe_reply(f"❌ 缺少必要的參數！請檢查你的指令格式。", delete_after=30)
+    elif  isinstance(error,commands.errors.CommandNotFound):
+        pass
+    elif isinstance(error, commands.errors.MissingPermissions):
+        await safe_reply(f"❌ 權限不足：你沒有權限執行此指令！", delete_after=30)
+    elif isinstance(error, commands.CommandOnCooldown):
+        await safe_reply(f"冷卻中,{error.retry_after:.2f}秒", delete_after=10)
+    elif isinstance(error, commands.MaxConcurrencyReached):
+        await safe_reply("此命令設有可同時使用次數限制", delete_after=30)
+    elif isinstance(error, commands.NotOwner):
+        await safe_reply(f"❌ 權限不足：此指令僅限機器人擁有者使用。", delete_after=30)
+    else:
+        # 1. 無通知回覆使用者發生未知錯誤
+        await safe_reply(
+            "❌ 出現問題，已停止目前指令執行，已將問題回報給開發者", delete_after=30
+        )
 
-    # 2. 組合 Traceback
-    tb_msg = "".join(
-        traceback.format_exception(type(error), error, error.__traceback__)
-    )
-    if len(tb_msg) > 1900:
-      tb_msg = tb_msg[:1900] + "\n... (訊息過長已截斷)"
+        # 2. 組合 Traceback
+        tb_msg = "".join(
+            traceback.format_exception(type(error), error, error.__traceback__)
+        )
+        if len(tb_msg) > 1900:
+            tb_msg = tb_msg[:1900] + "\n... (訊息過長已截斷)"
 
-    # 3. 發送到指定的開發者錯誤記錄頻道
-    channel = bot.get_channel(1533491542113779865)
-    if channel:
-      try:
-        await channel.send(f"```python\n{tb_msg}\n```")
-      except Exception as e:
-        print(f"發送錯誤日誌到開發者頻道失敗: {e}")
+        # 3. 發送到指定的開發者錯誤記錄頻道
+        channel = bot.get_channel(1533491542113779865)
+        if channel:
+            try:
+                await channel.send(f"```python\n{tb_msg}\n```")
+            except Exception as e:
+                print(f"發送錯誤日誌到開發者頻道失敗: {e}")
 
-    raise error
+        raise error
 
 
 @bot.hybrid_command(name="sev", description="sev")
