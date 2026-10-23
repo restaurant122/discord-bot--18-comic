@@ -172,41 +172,29 @@ class BlackjackGameOverView(discord.ui.View):
         embed.set_footer(text="🔄 已重新開局，此局已結束。")
         await interaction.response.edit_message(embed=embed, view=self)
 
-        if self.game_view.is_solo:
-            players = [interaction.user, AIBotPlayer("賭神小艾"), AIBotPlayer("牌局小助手")]
-            new_game_view = BlackjackGameView(self.bot, players, interaction.user.id, is_solo=True, channel=interaction.channel)
-            await new_game_view.process_ai_turns_if_needed()
+        view = BlackjackLobbyView(self.game_view.bot, self.game_view.host_id, channel=interaction.channel)
+        view.players = [p for p in self.game_view.players if not getattr(p, 'bot', False)]
+        if not view.players:
+            view.players.append(interaction.user)
 
-            embed = new_game_view.create_embed()
-            embed.title = "🃏 單人盲牌對戰模式"
-            embed.description = "與 2 位 AI 玩家及 AI 莊家展開 21 點盲牌對決！點擊下方按鈕開啟你的私密手牌面板。"
+        lobby_embed = discord.Embed(
+            title="🃏 多人 21 點遊戲大廳 (上限 4 人)",
+            description="運氣與策略的完美結合！\n點擊下方按鈕加入，由房主點擊開始遊戲（不足 4 人將由 AI 機器人補齊）。",
+            color=discord.Color.blue()
+        )
+        
+        player_list_lines = []
+        for i, p in enumerate(view.players):
+            tag = " (房主)" if p.id == self.game_view.host_id else ""
+            player_list_lines.append(f"{i+1}. {p.mention} - {p.display_name}{tag}")
+        
+        lobby_embed.add_field(name="目前參與玩家", value="\n".join(player_list_lines), inline=False)
+        lobby_embed.add_field(name="遊戲規則", value="A可算1/11，JQK算10。抽牌上限5張，滿5張不爆視為五小龍！", inline=False)
 
-            msg = await interaction.channel.send(embed=embed, view=new_game_view)
-            new_game_view.message = msg
-            active_blackjack_channels.add(interaction.channel.id)
-        else:
-            view = BlackjackLobbyView(self.game_view.bot, self.game_view.host_id, channel=interaction.channel)
-            view.players = [p for p in self.game_view.players if not getattr(p, 'bot', False)]
-            if not view.players:
-                view.players.append(interaction.user)
-
-            lobby_embed = discord.Embed(
-                title="🃏 多人 21 點遊戲大廳 (上限 4 人)",
-                description="運氣與策略的完美結合！\n點擊下方按鈕加入，由房主點擊開始遊戲（不足 4 人將由 AI 機器人補齊）。",
-                color=discord.Color.blue()
-            )
-            
-            player_list_lines = []
-            for i, p in enumerate(view.players):
-                tag = " (房主)" if p.id == self.game_view.host_id else ""
-                player_list_lines.append(f"{i+1}. {p.mention} - {p.display_name}{tag}")
-            
-            lobby_embed.add_field(name="目前參與玩家", value="\n".join(player_list_lines), inline=False)
-            lobby_embed.add_field(name="遊戲規則", value="A可算1/11，JQK算10。抽牌上限5張，滿5張不爆視為五小龍！", inline=False)
-
-            msg = await interaction.channel.send(embed=lobby_embed, view=view)
-            view.message = msg
-            active_blackjack_channels.add(interaction.channel.id)
+        msg = await interaction.channel.send(embed=lobby_embed, view=view)
+        view.message = msg
+        active_blackjack_channels.add(interaction.channel.id)
+        self.stop()
 
     @discord.ui.button(label="🛑 結束遊戲", style=discord.ButtonStyle.danger)
     async def end_game_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -225,12 +213,11 @@ class BlackjackGameOverView(discord.ui.View):
 
 # ==================== 2. 遊戲進行中的公開介面 (Game View) ====================
 class BlackjackGameView(discord.ui.View):
-    def __init__(self, bot, players, host_id, is_solo=False, channel=None):
+    def __init__(self, bot, players, host_id, channel=None):
         super().__init__(timeout=None)
         self.bot = bot
         self.players = players
         self.host_id = host_id
-        self.is_solo = is_solo
         self.channel = channel
         self.hands = {p.id: [] for p in players}
         self.dealer_hand = []
@@ -441,7 +428,7 @@ class BlackjackGameView(discord.ui.View):
                 score_str = f"{item['score']}點 ({len(self.hands[item['player'].id])}張)" if not item['is_bust'] else "爆牌 (💥)"
                 
                 if self.timeout_player_name and p_name == self.timeout_player_name:
-                    desc = "⏳ 逾時落敗"
+                    desc = "⏳ ⏳ 逾時落敗"
                 elif item['is_bust']:
                     desc = "❌ 淘汰 (爆牌)"
                 elif item['is_five']:
@@ -536,12 +523,6 @@ class BlackjackGameView(discord.ui.View):
         else:
             await self.process_ai_turns_if_needed()
 
-    async def play_again_callback(self, interaction: discord.Interaction):
-        pass
-
-    async def end_game_callback(self, interaction: discord.Interaction):
-        pass
-
 
 # ==================== 1. 遊戲大廳介面 (Lobby View) ====================
 class BlackjackLobbyView(discord.ui.View):
@@ -611,7 +592,7 @@ class BlackjackLobbyView(discord.ui.View):
         except discord.HTTPException:
             pass
         
-        game_view = BlackjackGameView(self.bot, self.players, self.host_id, is_solo=False, channel=interaction.channel)
+        game_view = BlackjackGameView(self.bot, self.players, self.host_id, channel=interaction.channel)
         await game_view.process_ai_turns_if_needed()
 
         msg = await interaction.channel.send(embed=game_view.create_embed(), view=game_view)
@@ -624,49 +605,40 @@ class BlackjackCombined(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(name="blackjack", aliases=["21點"])
-    async def blackjack_prefix(self, ctx):
+    @commands.hybrid_command(name="21點", description="開啟一個多人 21 點盲牌遊戲大廳 (最多 4 人)")
+    async def blackjack_hybrid(self, ctx: commands.Context):
         channel_id = ctx.channel.id
         if channel_id in active_blackjack_channels:
-            msg = await ctx.send("❌ 此頻道已經有一個進行中或等待中的 21 點遊戲了！")
-            asyncio.create_task(delete_message_after_delay(msg, 3))
+            msg_text = "❌ 此頻道已經有一個進行中或等待中的 21 點遊戲大廳了！\n*(此訊息 3 秒後自動刪除)*"
+            if ctx.interaction:
+                await ctx.interaction.response.send_message(msg_text, ephemeral=True)
+                asyncio.create_task(delete_interaction_after_delay(ctx.interaction, 3))
+            else:
+                msg = await ctx.send("❌ 此頻道已經有一個進行中或等待中的 21 點遊戲大廳了！")
+                asyncio.create_task(delete_message_after_delay(msg, 3))
             return
 
         active_blackjack_channels.add(channel_id)
-        players = [ctx.author, AIBotPlayer("賭神小艾"), AIBotPlayer("牌局小助手")]
-        game_view = BlackjackGameView(self.bot, players, ctx.author.id, is_solo=True, channel=ctx.channel)
-        await game_view.process_ai_turns_if_needed()
+        author = ctx.author
 
-        embed = game_view.create_embed()
-        embed.title = "🃏 單人盲牌對戰模式"
-        embed.description = "與 2 位 AI 玩家及 AI 莊家展開 21 點盲牌對決！點擊下方按鈕開啟你的私密手牌面板。"
-
-        msg = await ctx.send(embed=embed, view=game_view)
-        game_view.message = msg
-
-    @app_commands.command(name="21點", description="開啟一個多人 21 點盲牌遊戲大廳 (最多 4 人)")
-    async def blackjack_slash(self, interaction: discord.Interaction):
-        channel_id = interaction.channel.id
-        if channel_id in active_blackjack_channels:
-            await interaction.response.send_message("❌ 此頻道已經有一個進行中或等待中的 21 點遊戲大廳了！\n*(此訊息 3 秒後自動刪除)*", ephemeral=True)
-            asyncio.create_task(delete_interaction_after_delay(interaction, 3))
-            return
-
-        active_blackjack_channels.add(channel_id)
-        view = BlackjackLobbyView(self.bot, interaction.user.id, channel=interaction.channel)
-        view.players.append(interaction.user)
+        view = BlackjackLobbyView(self.bot, author.id, channel=ctx.channel)
+        view.players.append(author)
 
         embed = discord.Embed(
             title="🃏 多人 21 點遊戲大廳 (上限 4 人)",
             description="運氣與策略的完美結合！\n點擊下方按鈕加入，由房主點擊開始遊戲（不足 4 人將由 AI 機器人補齊）。",
             color=discord.Color.blue()
         )
-        player_list = f"1. {interaction.user.mention} - {interaction.user.display_name} (房主)"
+        player_list = f"1. {author.mention} - {author.display_name} (房主)"
         embed.add_field(name="目前參與玩家", value=player_list, inline=False)
         embed.add_field(name="遊戲規則", value="A可算1/11，JQK算10。抽牌上限5張，滿5張不爆視為五小龍！", inline=False)
 
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=False)
-        view.message = await interaction.original_response()
+        if ctx.interaction:
+            await ctx.interaction.response.send_message(embed=embed, view=view, ephemeral=False)
+            view.message = await ctx.interaction.original_response()
+        else:
+            msg = await ctx.send(embed=embed, view=view)
+            view.message = msg
 
 
 async def setup(bot):
