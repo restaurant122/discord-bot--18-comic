@@ -148,6 +148,18 @@ class BlackjackGameOverView(discord.ui.View):
         super().__init__(timeout=180)
         self.game_view = game_view
 
+    async def on_timeout(self):
+        self.clear_items()
+        if self.game_view.message:
+            try:
+                embed = self.game_view.message.embeds[0]
+                embed.set_footer(text="⏳ 結算畫面逾時，遊戲已自動關閉。")
+                await self.game_view.message.edit(embed=embed, view=self)
+            except discord.HTTPException:
+                pass
+        if self.game_view.channel:
+            active_blackjack_channels.discard(self.game_view.channel.id)
+
     @discord.ui.button(label="🔄 再來一局", style=discord.ButtonStyle.primary)
     async def play_again_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.game_view.host_id:
