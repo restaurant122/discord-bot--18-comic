@@ -2,6 +2,26 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import random
+import asyncio
+
+# 用來追蹤目前有哪些頻道正在進行 21 點遊戲或大廳
+active_blackjack_channels = set()
+
+# ==================== 提示訊息 3 秒自動刪除小幫手 ====================
+async def delete_interaction_after_delay(interaction: discord.Interaction, delay=3):
+    await asyncio.sleep(delay)
+    try:
+        await interaction.delete_original_response()
+    except Exception:
+        pass
+
+async def delete_message_after_delay(msg: discord.Message, delay=3):
+    await asyncio.sleep(delay)
+    try:
+        await msg.delete()
+    except Exception:
+        pass
+
 
 # ==================== 模擬 AI 玩家類別 ====================
 class AIBotPlayer:
@@ -26,22 +46,30 @@ class PlayerControlView(discord.ui.View):
     @discord.ui.button(label="要牌 (Hit)", style=discord.ButtonStyle.success, emoji="🃏")
     async def hit_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.player_id:
-            await interaction.response.send_message("這不是你的操作面板！", ephemeral=True)
+            await interaction.response.send_message("❌ 這不是你的操作面板！\n*(此訊息 3 秒後自動刪除)*", ephemeral=True)
+            asyncio.create_task(delete_interaction_after_delay(interaction, 3))
             return
         
         if self.game_view.game_over:
-            await interaction.response.send_message("遊戲已經結束囉！", ephemeral=True)
+            await interaction.response.send_message("❌ 遊戲已經結束囉！\n*(此訊息 3 秒後自動刪除)*", ephemeral=True)
+            asyncio.create_task(delete_interaction_after_delay(interaction, 3))
             return
 
         current_user = self.game_view.players[self.game_view.current_player_index]
         if interaction.user.id != current_user.id:
-            await interaction.response.send_message("目前還沒輪到你的回合！", ephemeral=True)
+            await interaction.response.send_message("❌ 目前還沒輪到你的回合！\n*(此訊息 3 秒後自動刪除)*", ephemeral=True)
+            asyncio.create_task(delete_interaction_after_delay(interaction, 3))
             return
 
+        self.game_view.cancel_turn_timer()
         current_hand = self.game_view.hands[current_user.id]
 
         if len(current_hand) >= 5:
-            await interaction.response.send_message("⚠️ 抽牌上限為 **5張**！已自動為您強制停牌。", ephemeral=True)
+            await interaction.response.edit_message(
+                content=f"⚠️ 抽牌上限為 **5張**！已自動為您強制停牌。\n您的手牌: {self.game_view.format_hand(current_hand, hide_first=False)} (點數: {self.game_view.calculate_score(current_hand)})\n\n*(此訊息 3 秒後自動刪除)*",
+                view=None
+            )
+            asyncio.create_task(delete_interaction_after_delay(interaction, 3))
             await self.game_view.next_turn()
             await self.game_view.update_public_message()
             return
@@ -50,47 +78,143 @@ class PlayerControlView(discord.ui.View):
         current_hand.append(card)
         score = self.game_view.calculate_score(current_hand)
         hand_len = len(current_hand)
+        card_str = f"{card['suit']}{card['rank']}"
 
         if hand_len >= 5 and score <= 21:
-            await interaction.response.send_message(f"🎉 恭喜達成 **5張牌上限（五小龍）**！系統已自動為您停牌。\n您的手牌: {self.game_view.format_hand(current_hand, hide_first=False)} (點數: {score})", ephemeral=True)
+            await interaction.response.edit_message(
+                content=f"🎉 恭喜達成 **5張牌上限（五小龍）**！系統已自動為您停牌。\n您的手牌: {self.game_view.format_hand(current_hand, hide_first=False)} (點數: {score})\n\n*(此訊息 3 秒後自動刪除)*",
+                view=None
+            )
+            asyncio.create_task(delete_interaction_after_delay(interaction, 3))
             await self.game_view.next_turn()
         elif score > 21:
-            await interaction.response.send_message(f"💥 哎呀，爆牌了！\n您的手牌: {self.game_view.format_hand(current_hand, hide_first=False)} (點數: {score})", ephemeral=True)
+            await interaction.response.edit_message(
+                content=f"💥 哎呀，爆牌了！\n您的手牌: {self.game_view.format_hand(current_hand, hide_first=False)} (點數: {score})\n\n*(此訊息 3 秒後自動刪除)*",
+                view=None
+            )
+            asyncio.create_task(delete_interaction_after_delay(interaction, 3))
             await self.game_view.next_turn()
         elif score == 21:
-            await interaction.response.send_message(f"✨ 恭喜達到 **21 點**！系統已自動為您停牌。\n您的手牌: {self.game_view.format_hand(current_hand, hide_first=False)}", ephemeral=True)
+            await interaction.response.edit_message(
+                content=f"✨ 恭喜達到 **21 點**！系統已自動為您停牌。\n您的手牌: {self.game_view.format_hand(current_hand, hide_first=False)}\n\n*(此訊息 3 秒後自動刪除)*",
+                view=None
+            )
+            asyncio.create_task(delete_interaction_after_delay(interaction, 3))
             await self.game_view.next_turn()
         else:
-            await interaction.response.send_message(f"🃏 你抽到了 `{card['suit']}{card['rank']}`\n目前手牌: {self.game_view.format_hand(current_hand, hide_first=False)}\n目前點數: **{score} 點** (目前共 {hand_len} 張)", ephemeral=True)
+            hand_str = self.game_view.format_hand(current_hand, hide_first=False)
+            await interaction.response.edit_message(
+                content=f"🔐 **【私密手牌面板】**\n你抽到了 `{card_str}`\n你的手牌: {hand_str}\n點數總計: **{score} 點** (共 {hand_len} 張牌)\n\n✨ **目前輪到你的回合！** 請使用下方按鈕進行動作：",
+                view=self
+            )
+            self.game_view.turn_timer_task = asyncio.create_task(self.game_view.start_turn_timer(interaction.user))
 
         await self.game_view.update_public_message()
 
     @discord.ui.button(label="停牌 (Stand)", style=discord.ButtonStyle.secondary, emoji="🛑")
     async def stand_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.player_id:
-            await interaction.response.send_message("這不是你的操作面板！", ephemeral=True)
+            await interaction.response.send_message("❌ 這不是你的操作面板！\n*(此訊息 3 秒後自動刪除)*", ephemeral=True)
+            asyncio.create_task(delete_interaction_after_delay(interaction, 3))
             return
 
         if self.game_view.game_over:
-            await interaction.response.send_message("遊戲已經結束囉！", ephemeral=True)
+            await interaction.response.send_message("❌ 遊戲已經結束囉！\n*(此訊息 3 秒後自動刪除)*", ephemeral=True)
+            asyncio.create_task(delete_interaction_after_delay(interaction, 3))
             return
 
         current_user = self.game_view.players[self.game_view.current_player_index]
         if interaction.user.id != current_user.id:
-            await interaction.response.send_message("目前還沒輪到你的回合！", ephemeral=True)
+            await interaction.response.send_message("❌ 目前還沒輪到你的回合！\n*(此訊息 3 秒後自動刪除)*", ephemeral=True)
+            asyncio.create_task(delete_interaction_after_delay(interaction, 3))
             return
 
+        self.game_view.cancel_turn_timer()
         score = self.game_view.calculate_score(self.game_view.hands[current_user.id])
-        await interaction.response.send_message(f"🛑 你選擇停牌。最終手牌點數為: **{score} 點**", ephemeral=True)
+        
+        await interaction.response.edit_message(
+            content=f"🛑 你選擇停牌。最終手牌點數為: **{score} 點**\n\n*(此訊息 3 秒後自動刪除)*",
+            view=None
+        )
+        asyncio.create_task(delete_interaction_after_delay(interaction, 3))
         
         await self.game_view.next_turn()
         await self.game_view.update_public_message()
 
 
+# ==================== 遊戲結束按鈕 (GameOver View) ====================
+class BlackjackGameOverView(discord.ui.View):
+    def __init__(self, game_view):
+        super().__init__(timeout=180)
+        self.game_view = game_view
+
+    @discord.ui.button(label="🔄 再來一局", style=discord.ButtonStyle.primary)
+    async def play_again_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.game_view.host_id:
+            await interaction.response.send_message("❌ 只有房主才能重新開局！\n*(此訊息 3 秒後自動刪除)*", ephemeral=True)
+            asyncio.create_task(delete_interaction_after_delay(interaction, 3))
+            return
+
+        self.clear_items()
+        embed = interaction.message.embeds[0]
+        embed.set_footer(text="🔄 已重新開局，此局已結束。")
+        await interaction.response.edit_message(embed=embed, view=self)
+
+        if self.game_view.is_solo:
+            players = [interaction.user, AIBotPlayer("賭神小艾"), AIBotPlayer("牌局小助手")]
+            new_game_view = BlackjackGameView(self.bot, players, interaction.user.id, is_solo=True, channel=interaction.channel)
+            await new_game_view.process_ai_turns_if_needed()
+
+            embed = new_game_view.create_embed()
+            embed.title = "🃏 單人盲牌對戰模式"
+            embed.description = "與 2 位 AI 玩家及 AI 莊家展開 21 點盲牌對決！點擊下方按鈕開啟你的私密手牌面板。"
+
+            msg = await interaction.channel.send(embed=embed, view=new_game_view)
+            new_game_view.message = msg
+            active_blackjack_channels.add(interaction.channel.id)
+        else:
+            view = BlackjackLobbyView(self.game_view.bot, self.game_view.host_id, channel=interaction.channel)
+            view.players = [p for p in self.game_view.players if not getattr(p, 'bot', False)]
+            if not view.players:
+                view.players.append(interaction.user)
+
+            lobby_embed = discord.Embed(
+                title="🃏 多人 21 點遊戲大廳 (上限 4 人)",
+                description="運氣與策略的完美結合！\n點擊下方按鈕加入，由房主點擊開始遊戲（不足 4 人將由 AI 機器人補齊）。",
+                color=discord.Color.blue()
+            )
+            
+            player_list_lines = []
+            for i, p in enumerate(view.players):
+                tag = " (房主)" if p.id == self.game_view.host_id else ""
+                player_list_lines.append(f"{i+1}. {p.mention} - {p.display_name}{tag}")
+            
+            lobby_embed.add_field(name="目前參與玩家", value="\n".join(player_list_lines), inline=False)
+            lobby_embed.add_field(name="遊戲規則", value="A可算1/11，JQK算10。抽牌上限5張，滿5張不爆視為五小龍！", inline=False)
+
+            msg = await interaction.channel.send(embed=lobby_embed, view=view)
+            view.message = msg
+            active_blackjack_channels.add(interaction.channel.id)
+
+    @discord.ui.button(label="🛑 結束遊戲", style=discord.ButtonStyle.danger)
+    async def end_game_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.game_view.host_id:
+            await interaction.response.send_message("❌ 只有房主才能結束遊戲！\n*(此訊息 3 秒後自動刪除)*", ephemeral=True)
+            asyncio.create_task(delete_interaction_after_delay(interaction, 3))
+            return
+
+        self.clear_items()
+        embed = interaction.message.embeds[0]
+        embed.set_footer(text="🎮 遊戲已正式結束，感謝各位玩家的參與！")
+        await interaction.response.edit_message(embed=embed, view=self)
+        active_blackjack_channels.discard(interaction.channel.id)
+        self.stop()
+
+
 # ==================== 2. 遊戲進行中的公開介面 (Game View) ====================
 class BlackjackGameView(discord.ui.View):
     def __init__(self, bot, players, host_id, is_solo=False, channel=None):
-        super().__init__(timeout=180)
+        super().__init__(timeout=None)
         self.bot = bot
         self.players = players
         self.host_id = host_id
@@ -101,20 +225,26 @@ class BlackjackGameView(discord.ui.View):
         self.current_player_index = 0
         self.game_over = False
         self.message = None 
+        self.timeout_player_name = None
+        self.turn_timer_task = None
         
         self.initialize_deck()
         self.deal_initial_cards()
         self.update_main_buttons()
 
-    async def on_timeout(self):
-        self.clear_items()
-        if self.message:
-            try:
-                embed = self.message.embeds[0]
-                embed.set_footer(text="⏳ 遊戲因長時間無互動已自動結束。")
-                await self.message.edit(embed=embed, view=self)
-            except discord.HTTPException:
-                pass
+    def cancel_turn_timer(self):
+        if self.turn_timer_task and not self.turn_timer_task.done():
+            self.turn_timer_task.cancel()
+            self.turn_timer_task = None
+
+    async def start_turn_timer(self, player):
+        """180秒回合超時倒數計時"""
+        try:
+            await asyncio.sleep(180)
+            if not self.game_over:
+                await self.finalize_game(timeout_player=player)
+        except asyncio.CancelledError:
+            pass
 
     def initialize_deck(self):
         suits = ['♠', '♥', '♦', '♣']
@@ -179,19 +309,12 @@ class BlackjackGameView(discord.ui.View):
             control_btn = discord.ui.Button(label="🎯 開啟我的手牌與操作面板", style=discord.ButtonStyle.primary, emoji="👁️")
             control_btn.callback = self.open_control_panel
             self.add_item(control_btn)
-        else:
-            again_btn = discord.ui.Button(label="🔄 再來一局", style=discord.ButtonStyle.primary)
-            again_btn.callback = self.play_again_callback
-            self.add_item(again_btn)
-
-            end_btn = discord.ui.Button(label="🛑 結束遊戲", style=discord.ButtonStyle.danger)
-            end_btn.callback = self.end_game_callback
-            self.add_item(end_btn)
 
     async def open_control_panel(self, interaction: discord.Interaction):
         player_obj = discord.utils.get(self.players, id=interaction.user.id)
         if not player_obj:
-            await interaction.response.send_message("你並不是這局遊戲的參與者！", ephemeral=True)
+            await interaction.response.send_message("❌ 你並不是這局遊戲的參與者！\n*(此訊息 3 秒後自動刪除)*", ephemeral=True)
+            asyncio.create_task(delete_interaction_after_delay(interaction, 3))
             return
         
         score = self.calculate_score(self.hands[interaction.user.id])
@@ -305,7 +428,9 @@ class BlackjackGameView(discord.ui.View):
                 p_name = names[item['player'].id]
                 score_str = f"{item['score']}點 ({len(self.hands[item['player'].id])}張)" if not item['is_bust'] else "爆牌 (💥)"
                 
-                if item['is_bust']:
+                if self.timeout_player_name and p_name == self.timeout_player_name:
+                    desc = "⏳ 逾時落敗"
+                elif item['is_bust']:
                     desc = "❌ 淘汰 (爆牌)"
                 elif item['is_five']:
                     desc = "🐲 五小龍神卡 (大於一切)"
@@ -321,7 +446,11 @@ class BlackjackGameView(discord.ui.View):
                 leaderboard_lines.append(f"**第 {curr_rank} 名**: {p_name} — {score_str} [{desc}]")
 
             embed.add_field(name="📊 最終排行榜", value="\n".join(leaderboard_lines), inline=False)
-            embed.set_footer(text="感謝遊玩！僅限房主點擊下方按鈕。")
+            
+            if self.timeout_player_name:
+                embed.set_footer(text=f"⏳ 遊戲結束：{self.timeout_player_name} 超過太久未互動！")
+            else:
+                embed.set_footer(text="感謝遊玩！僅限房主點擊下方按鈕。")
 
         return embed
 
@@ -332,16 +461,21 @@ class BlackjackGameView(discord.ui.View):
             except discord.HTTPException:
                 pass
 
-    async def finalize_game(self):
+    async def finalize_game(self, timeout_player=None):
         self.game_over = True
-        self.update_main_buttons()
+        self.cancel_turn_timer()
+        
+        if timeout_player:
+            self.timeout_player_name = getattr(timeout_player, 'display_name', getattr(timeout_player, 'name', '玩家'))
+
         if self.message:
             try:
                 await self.message.delete()
             except discord.HTTPException:
                 pass
         if self.channel:
-            self.message = await self.channel.send(embed=self.create_embed(), view=self)
+            game_over_view = BlackjackGameOverView(self)
+            self.message = await self.channel.send(embed=self.create_embed(), view=game_over_view)
 
     async def process_ai_turns_if_needed(self):
         while not self.game_over and self.current_player_index < len(self.players):
@@ -377,6 +511,8 @@ class BlackjackGameView(discord.ui.View):
                     await self.finalize_game()
                     break
             else:
+                self.cancel_turn_timer()
+                self.turn_timer_task = asyncio.create_task(self.start_turn_timer(current_user))
                 break
 
     async def next_turn(self):
@@ -389,56 +525,10 @@ class BlackjackGameView(discord.ui.View):
             await self.process_ai_turns_if_needed()
 
     async def play_again_callback(self, interaction: discord.Interaction):
-        if interaction.user.id != self.host_id:
-            await interaction.response.send_message("❌ 只有房主才能重新開局！", ephemeral=True)
-            return
-
-        if self.is_solo:
-            players = [interaction.user, AIBotPlayer("賭神小艾"), AIBotPlayer("牌局小助手")]
-            new_game_view = BlackjackGameView(self.bot, players, interaction.user.id, is_solo=True, channel=interaction.channel)
-            await new_game_view.process_ai_turns_if_needed()
-
-            embed = new_game_view.create_embed()
-            embed.title = "🃏 單人盲牌對戰模式"
-            embed.description = "與 2 位 AI 玩家及 AI 莊家展開 21 點盲牌對決！點擊下方按鈕開啟你的私密手牌面板。"
-
-            await interaction.response.send_message(embed=embed, view=new_game_view)
-            new_game_view.message = await interaction.original_response()
-            self.stop()
-        else:
-            view = BlackjackLobbyView(self.bot, self.host_id, channel=interaction.channel)
-            view.players = [p for p in self.players if not getattr(p, 'bot', False)]
-            if not view.players:
-                view.players.append(interaction.user)
-
-            embed = discord.Embed(
-                title="🃏 多人 21 點遊戲大廳 (上限 4 人)",
-                description="運氣與策略的完美結合！\n點擊下方按鈕加入，由房主點擊開始遊戲（不足 4 人將由 AI 機器人補齊）。",
-                color=discord.Color.blue()
-            )
-            
-            player_list_lines = []
-            for i, p in enumerate(view.players):
-                tag = " (房主)" if p.id == self.host_id else ""
-                player_list_lines.append(f"{i+1}. {p.mention} - {p.display_name}{tag}")
-            
-            embed.add_field(name="目前參與玩家", value="\n".join(player_list_lines), inline=False)
-            embed.add_field(name="遊戲規則", value="A可算1/11，JQK算10。抽牌上限5張，滿5張不爆視為五小龍！", inline=False)
-
-            await interaction.response.send_message(embed=embed, view=view)
-            view.message = await interaction.original_response()
-            self.stop()
+        pass
 
     async def end_game_callback(self, interaction: discord.Interaction):
-        if interaction.user.id != self.host_id:
-            await interaction.response.send_message("❌ 只有房主才能結束遊戲！", ephemeral=True)
-            return
-
-        self.clear_items()
-        embed = interaction.message.embeds[0]
-        embed.set_footer(text="🎮 遊戲已正式結束，感謝各位玩家的參與！")
-        await interaction.response.edit_message(embed=embed, view=self)
-        self.stop()
+        pass
 
 
 # ==================== 1. 遊戲大廳介面 (Lobby View) ====================
@@ -460,12 +550,15 @@ class BlackjackLobbyView(discord.ui.View):
                 await self.message.edit(embed=embed, view=self)
             except discord.HTTPException:
                 pass
+        if self.channel:
+            active_blackjack_channels.discard(self.channel.id)
 
     @discord.ui.button(label="參與遊戲", style=discord.ButtonStyle.success, emoji="✅")
     async def join_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user not in self.players:
             if len(self.players) >= 4:
-                await interaction.response.send_message("❌ 遊戲大廳已滿（最多 4 人）！", ephemeral=True)
+                await interaction.response.send_message("❌ 遊戲大廳已滿（最多 4 人）！\n*(此訊息 3 秒後自動刪除)*", ephemeral=True)
+                asyncio.create_task(delete_interaction_after_delay(interaction, 3))
                 return
 
             self.players.append(interaction.user)
@@ -479,15 +572,18 @@ class BlackjackLobbyView(discord.ui.View):
             embed.set_field_at(0, name="目前參與玩家", value="\n".join(player_list_lines), inline=False)
             await interaction.response.edit_message(embed=embed, view=self)
         else:
-            await interaction.response.send_message("你已經在遊戲大廳囉！", ephemeral=True)
+            await interaction.response.send_message("你已經在遊戲大廳囉！\n*(此訊息 3 秒後自動刪除)*", ephemeral=True)
+            asyncio.create_task(delete_interaction_after_delay(interaction, 3))
 
     @discord.ui.button(label="開始遊戲", style=discord.ButtonStyle.primary, emoji="🟧")
     async def start_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.host_id:
-            await interaction.response.send_message("只有開房者才能開始遊戲！", ephemeral=True)
+            await interaction.response.send_message("❌ 只有開房者才能開始遊戲！\n*(此訊息 3 秒後自動刪除)*", ephemeral=True)
+            asyncio.create_task(delete_interaction_after_delay(interaction, 3))
             return
         if not self.players:
-            await interaction.response.send_message("目前沒有任何玩家，無法開始！", ephemeral=True)
+            await interaction.response.send_message("❌ 目前沒有任何玩家，無法開始！\n*(此訊息 3 秒後自動刪除)*", ephemeral=True)
+            asyncio.create_task(delete_interaction_after_delay(interaction, 3))
             return
         
         bot_pool = ["賭神小艾", "牌局小助手", "牌桌路人甲", "摸魚高手"]
@@ -518,6 +614,13 @@ class BlackjackCombined(commands.Cog):
 
     @commands.command(name="blackjack", aliases=["21點"])
     async def blackjack_prefix(self, ctx):
+        channel_id = ctx.channel.id
+        if channel_id in active_blackjack_channels:
+            msg = await ctx.send("❌ 此頻道已經有一個進行中或等待中的 21 點遊戲了！")
+            asyncio.create_task(delete_message_after_delay(msg, 3))
+            return
+
+        active_blackjack_channels.add(channel_id)
         players = [ctx.author, AIBotPlayer("賭神小艾"), AIBotPlayer("牌局小助手")]
         game_view = BlackjackGameView(self.bot, players, ctx.author.id, is_solo=True, channel=ctx.channel)
         await game_view.process_ai_turns_if_needed()
@@ -531,6 +634,13 @@ class BlackjackCombined(commands.Cog):
 
     @app_commands.command(name="21點", description="開啟一個多人 21 點盲牌遊戲大廳 (最多 4 人)")
     async def blackjack_slash(self, interaction: discord.Interaction):
+        channel_id = interaction.channel.id
+        if channel_id in active_blackjack_channels:
+            await interaction.response.send_message("❌ 此頻道已經有一個進行中或等待中的 21 點遊戲大廳了！\n*(此訊息 3 秒後自動刪除)*", ephemeral=True)
+            asyncio.create_task(delete_interaction_after_delay(interaction, 3))
+            return
+
+        active_blackjack_channels.add(channel_id)
         view = BlackjackLobbyView(self.bot, interaction.user.id, channel=interaction.channel)
         view.players.append(interaction.user)
 
