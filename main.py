@@ -510,8 +510,18 @@ async def on_message(msg):
                 ec.set_thumbnail(url=bot_avatar_url)
             await m.delete()
             await msg.reply(embed=ec,mention_author=False)
-            
-        
+
+        elif "https://nhentai.net/" in msg.content:
+            pattern = r"nhentai\.net/g/(\d+)/(\d+)"
+            match = re.search(pattern, msg.content)
+            if match:
+                gallery_id = match.group(1)
+            else:
+                return
+            text=f"https://nhentai.net/g/{gallery_id}/"
+            await msg.reply(f"[{gallery_id}]({text}) ",mention_author=False)
+
+                
         elif "https://www.bilibili.com/" in msg.content :
 
             pattern = r"(https?://www\.bilibili\.com/video/BV[a-zA-Z0-9]+)/?"
@@ -1078,7 +1088,7 @@ async def eh(ctx, target_url:str):
 
 
 @bot.hybrid_command(name="help")
-async def help(ctx, help=None):
+async def help(ctx):
     tell=r'https://telegra.ph/xxxxxx(xxx通常會為一大串 直接貼上即可)'
     comicc=r'https://18comic.vip/album/1427038/xxxxx(xxx通常會為一大串 直接貼上即可)'
 
